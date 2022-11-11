@@ -1,2 +1,10 @@
+# Python project files
 .venv/
 *.pyc
+
+# Raw data
+*.csv
+*.kmz
+*.zip
+raw/chicago/
+raw/santa_clara/

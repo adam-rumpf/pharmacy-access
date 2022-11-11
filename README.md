@@ -1,7 +1,3 @@
-* Write `README.md`. Replace `#` in the badge links with this repo's name.
-* Update `LICENSE` year and maintenance badge year.
-* Update `.gitignore`.
-* Update `requirements.txt`.
+# COVID-19 Vaccine Accessibility Study
 
-# Title
-<a href="https://github.com/adam-rumpf/#/search?l=python"><img src="https://img.shields.io/badge/language-python-blue?logo=python&logoColor=white"/></a> <a href="https://github.com/adam-rumpf/#/releases"><img src="https://img.shields.io/github/v/release/adam-rumpf/#"/></a> <a href="https://github.com/adam-rumpf/#/blob/main/LICENSE"><img src="https://img.shields.io/github/license/adam-rumpf/#"/></a> <a href="https://github.com/adam-rumpf/#/commits/main"><img src="https://img.shields.io/maintenance/yes/2022"/></a>
+A collection of data processing scripts for use in an ongoing research project about measuring accessibility levels to COVID-19 vaccines. These scripts are unlikely to be of use to anyone ourside our research group, but are provided here for anyone interested. Raw data files are not included in this repo. Python packages used can be found in the root-level `requirements.txt` file.
