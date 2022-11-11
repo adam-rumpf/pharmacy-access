@@ -2,9 +2,10 @@
 .venv/
 *.pyc
 
-# Raw data
-*.csv
-*.kmz
-*.zip
-raw/chicago/
-raw/santa_clara/
+# Data files
+raw/*
+!raw/*.md
+!raw/*.py
+preprocessed/*
+!preprocessed/*.md
+!preprocessed/*.py
