@@ -11,7 +11,7 @@ for each location.
 """
 
 import os.path
-import requests
+import re
 
 #==============================================================================
 # Global Constants
@@ -27,17 +27,18 @@ FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 # Common Functions
 #==============================================================================
 
-def address_to_coords(address):
-    """Computes the latitude/longitude of a given address.
+def point_to_coords(point):
+    """Extracts the latitude/longitude from a GIS POINT object.
     
     Positional arguments:
-        address (str) -- Address to search for.
+        point (str) -- String of the format "POINT (LON LAT)".
     
     Returns:
         (tuple(float)) -- Latitude/longitude of the given address.
     """
     
-    pass
+    s = re.findall("[-.\d]+", point)
+    return (float(s[1]), float(s[0]))
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -60,12 +61,61 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
     vacc_file = os.path.join("chicago","COVID-19_Vaccinations_by_ZIP_Code.csv")
     adi_file = os.path.join("chicago", "IL_2020_ADI_9 Digit Zip Code_v3.2.csv")
     
+    # Initialize population center dictionary
+    pop = dict()
+    
+    # Gather ZIP code locations and populations
+    with open(case_file, 'r') as f:
+        
+        for line in f:
+            
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            s = line.split(',')
+            zc = int(s[0]) # current row's ZIP code
+            
+            # Initialize empty entry for a new ZIP code
+            if zc not in pop:
+                pop[zc] = [0 for i in range(5)]
+            
+            # Gather coordinates and population
+            pop[zc][0], pop[zc][1] = point_to_coords(s[-1])
+            pop[zc][2] = max(pop[zc][2], int(s[18]))
+    
+    # Gather vaccination rates
+    with open(vacc_file, 'r') as f:
+        
+        for line in f:
+            
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            s = line.split(',')
+            zc = int(s[0]) # current row's ZIP code
+            
+            # Gather cumulative vaccinations
+            try:
+                pop[zc][3] += int(s[4])
+            except ValueError:
+                pass
+    
     ###
     
     # Write population output file
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
-        ###
+        sk = sorted(pop.keys())
+        for i in range(len(sk)):
+            line = str(i) + '\t' + str(sk[i]) + '\t'
+            for item in pop[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
+    
+    # Initialize facility dictionary
+    fac = dict()
     
     # Write facility output file
     with open(facfile, 'w') as f:
