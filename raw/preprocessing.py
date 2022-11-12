@@ -10,7 +10,18 @@ differently, a different function has been defined to perform the preprocessing
 for each location.
 """
 
+import os.path
 import requests
+
+#==============================================================================
+# Global Constants
+#==============================================================================
+
+# Population center file header (including column labels)
+POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\t\n"
+
+# Facility file header (including column labels)
+FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 
 #==============================================================================
 # Common Functions
@@ -42,15 +53,24 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             named "chicago_fac.tsv".
     """
     
+    # Define location-specific file names
+    case_file = os.path.join("chicago",
+                           "COVID-19_Cases__Tests__and_Deaths_by_ZIP_Code.csv")
+    fac_file = os.path.join("chicago", "COVID-19_Vaccination_Locations.csv")
+    vacc_file = os.path.join("chicago","COVID-19_Vaccinations_by_ZIP_Code.csv")
+    adi_file = os.path.join("chicago", "IL_2020_ADI_9 Digit Zip Code_v3.2.csv")
+    
     ###
     
     # Write population output file
     with open(popfile, 'w') as f:
-        pass
+        f.write(POP_HEADER)
+        ###
     
     # Write facility output file
     with open(facfile, 'w') as f:
-        pass
+        f.write(FAC_HEADER)
+        ###
 
 #------------------------------------------------------------------------------
 
@@ -65,15 +85,24 @@ def process_santa_clara(popfile="santa_clara_pop.tsv",
             named "santa_clara_fac.tsv".
     """
     
+    # Define location-specific file names
+    adi_file = os.path.join("santa_clara",
+                            "CA_2020_ADI_Census Block Group_v3.2.csv")
+    census_file = os.path.join("santa_clara", "CensusTract2020.csv")
+    vacc_file = os.path.join("santa_clara",
+             "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
+    
     ###
     
     # Write population output file
     with open(popfile, 'w') as f:
-        pass
+        f.write(POP_HEADER)
+        ###
     
     # Write facility output file
     with open(facfile, 'w') as f:
-        pass
+        f.write(FAC_HEADER)
+        ###
 
 #==============================================================================
 # Execution
