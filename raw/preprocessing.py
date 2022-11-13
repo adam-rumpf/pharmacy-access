@@ -34,7 +34,7 @@ def point_to_coords(point):
         point (str) -- String of the format "POINT (LON LAT)".
     
     Returns:
-        (tuple(float)) -- Latitude/longitude of the given address.
+        (tuple(float)) -- Latitude/longitude.
     """
     
     s = re.findall("[-.\d]+", point)
@@ -97,6 +97,8 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             zc = int(s[0]) # current row's ZIP code
             
             # Gather cumulative vaccinations
+            ### Fix this, since this data does not include vaccination rates
+            ### per ZIP code
             try:
                 pop[zc][3] += int(s[4])
             except ValueError:
@@ -110,11 +112,11 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
         
         for line in f:
             
-            s = line.replace('"', '').split(',')
-            
             # Skip comment line
-            if s[0][0].isdigit() == False:
+            if line[0].isdigit() == False:
                 continue
+            
+            s = line.replace('"', '').split(',')
             
             # Take 5-digit header
             zc = int(s[0][:5])
@@ -146,10 +148,43 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
     # Initialize facility dictionary
     fac = dict()
     
+    # Gather vaccination facility locations
+    with open(fac_file, 'r') as f:
+        
+        for line in f:
+            
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            s = line.split(',')
+            fi = int(s[0]) # current row's facility ID
+            
+            # Initialize empty entry for a new facility
+            if fi not in fac:
+                fac[fi] = [0 for i in range(3)]
+            
+            # Gather coordinates
+            try:
+                fac[fi][0], fac[fi][1] = point_to_coords(s[-1])
+            except IndexError:
+                # If no POINT is given, search for the coordinates
+                ### Fill in auto coordinate searching if no coordinates.
+                pass
+            
+            # Gather capacity
+            ### Find a way to measure capacity.
+            fac[fi][2] = 1
+    
     # Write facility output file
     with open(facfile, 'w') as f:
         f.write(FAC_HEADER)
-        ###
+        sk = sorted(fac.keys())
+        for i in range(len(sk)):
+            line = str(i) + '\t' + str(sk[i]) + '\t'
+            for item in fac[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
 
 #------------------------------------------------------------------------------
 
