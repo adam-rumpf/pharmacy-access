@@ -26,7 +26,19 @@ A facility file is generated for each location, summarizing vaccination facility
 
 ## Raw Data
 
-The raw data files for each location, along with sources, are included below.
+The raw data files for each location should be included in subdirectories with the following structure:
+```
+chicago/
+    IL_2020_ADI_9 Digit Zip Code_v3.2.csv
+    OVID-19_Cases__Test_and_Deaths_by_ZIP_Code.csv
+    COVID-19_Vaccination_Locations.csv
+    COVID-19_Vaccinations_by_ZIP_Code.csv
+santa_clara/
+    CA_2020_ADI_Census_Block_Group_v3.2.csv
+    CensusTract2020.csv
+    COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv
+```
+The files for each location, along with their sources, are explained below.
 
 ### Chicago
 
@@ -41,6 +53,6 @@ Data mostly collected from the [Chicago Data Portal](https://data.cityofchicago.
 
 Data mostly collected from the [County of Santa Clara Open Data Portal](https://data.sccgov.org/) on November 3, 2022.
 
-* [`CA_2020_ADI_Census_Block_Group_v3.2.zip`](https://www.neighborhoodatlas.medicine.wisc.edu/): Census tract-level [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) rankings for California, indexed by FIPS.
+* [`CA_2020_ADI_Census_Block_Group_v3.2.csv`](https://www.neighborhoodatlas.medicine.wisc.edu/): Census tract-level [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) rankings for California, indexed by FIPS.
 * [`CensusTract2020.csv`](https://data.sccgov.org/Government/CensusTract2020/4z77-invd): Santa Clara County census tract information from the 2020 census.
 * [`COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv`](https://data.sccgov.org/COVID-19/COVID-19-Vaccination-among-County-Residents-by-Cen/qx2e-7jz2): Santa Clara County COVID-19 vaccination rates by census tract.
