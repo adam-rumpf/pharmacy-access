@@ -2,8 +2,7 @@
 
 The code below includes various scripts for collecting data from a variety of
 assorted raw data files and collecting them into summary files with a standard
-format. The Google Maps API is used to convert addresses to coordinates where
-needed.
+format.
 
 Since each location included in the study organizes its data slightly
 differently, a different function has been defined to perform the preprocessing
@@ -62,7 +61,7 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
     adi_file = os.path.join("chicago", "IL_2020_ADI_9 Digit Zip Code_v3.2.csv")
     
     # Initialize population center dictionary
-    pop = dict()
+    pdic = dict()
     
     # Gather ZIP code locations and populations
     with open(case_file, 'r') as f:
@@ -77,12 +76,12 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             zc = int(s[0]) # current row's ZIP code
             
             # Initialize empty entry for a new ZIP code
-            if zc not in pop:
-                pop[zc] = [0 for i in range(5)]
+            if zc not in pdic:
+                pdic[zc] = [0 for i in range(5)]
             
             # Gather coordinates and population
-            pop[zc][0], pop[zc][1] = point_to_coords(s[-1])
-            pop[zc][2] = max(pop[zc][2], int(s[18]))
+            pdic[zc][0], pdic[zc][1] = point_to_coords(s[-1])
+            pdic[zc][2] = max(pdic[zc][2], int(s[18]))
     
     # Gather vaccination rates
     with open(vacc_file, 'r') as f:
@@ -100,7 +99,7 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             ### Fix this, since this data does not include vaccination rates
             ### per ZIP code
             try:
-                pop[zc][3] += int(s[4])
+                pdic[zc][3] += int(s[4])
             except ValueError:
                 pass
     
@@ -108,19 +107,19 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
     with open(adi_file, 'r') as f:
         
         # Initialize dictionary to group 9-digit ZIP codes by 5-digit code
-        adi = dict([(zc, [0, 0]) for zc in pop])
+        adi = dict([(zc, [0, 0]) for zc in pdic])
         
         for line in f:
             
             # Skip comment line
-            if line[0].isdigit() == False:
+            if line[1].isdigit() == False:
                 continue
             
             s = line.replace('"', '').split(',')
             
             # Take 5-digit header
             zc = int(s[0][:5])
-            if zc not in pop:
+            if zc not in pdic:
                 continue
             
             # Add ADI ranking to tally
@@ -131,22 +130,22 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
                 pass
         
         # Average 9-digit values across 5-digit codes
-        for zc in pop:
+        for zc in pdic:
             if adi[zc][1] > 0:
-                pop[zc][4] = adi[zc][0]/adi[zc][1]
+                pdic[zc][4] = adi[zc][0]/adi[zc][1]
     
     # Write population output file
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
-        sk = sorted(pop.keys())
+        sk = sorted(pdic.keys())
         for i in range(len(sk)):
             line = str(i) + '\t' + str(sk[i]) + '\t'
-            for item in pop[sk[i]]:
+            for item in pdic[sk[i]]:
                 line += str(item) + '\t'
             f.write(line + '\n')
     
     # Initialize facility dictionary
-    fac = dict()
+    fdic = dict()
     
     # Gather vaccination facility locations
     with open(fac_file, 'r') as f:
@@ -161,12 +160,12 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             fi = int(s[0]) # current row's facility ID
             
             # Initialize empty entry for a new facility
-            if fi not in fac:
-                fac[fi] = [0 for i in range(3)]
+            if fi not in fdic:
+                fdic[fi] = [0 for i in range(3)]
             
             # Gather coordinates
             try:
-                fac[fi][0], fac[fi][1] = point_to_coords(s[-1])
+                fdic[fi][0], fdic[fi][1] = point_to_coords(s[-1])
             except IndexError:
                 # If no POINT is given, search for the coordinates
                 ### Fill in auto coordinate searching if no coordinates.
@@ -174,15 +173,15 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             
             # Gather capacity
             ### Find a way to measure capacity.
-            fac[fi][2] = 1
+            fdic[fi][2] = 1
     
     # Write facility output file
     with open(facfile, 'w') as f:
         f.write(FAC_HEADER)
-        sk = sorted(fac.keys())
+        sk = sorted(fdic.keys())
         for i in range(len(sk)):
             line = str(i) + '\t' + str(sk[i]) + '\t'
-            for item in fac[sk[i]]:
+            for item in fdic[sk[i]]:
                 line += str(item) + '\t'
             f.write(line + '\n')
 
