@@ -102,7 +102,36 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             except ValueError:
                 pass
     
-    ###
+    # Gather ADI rankings
+    with open(adi_file, 'r') as f:
+        
+        # Initialize dictionary to group 9-digit ZIP codes by 5-digit code
+        adi = dict([(zc, [0, 0]) for zc in pop])
+        
+        for line in f:
+            
+            s = line.replace('"', '').split(',')
+            
+            # Skip comment line
+            if s[0][0].isdigit() == False:
+                continue
+            
+            # Take 5-digit header
+            zc = int(s[0][:5])
+            if zc not in pop:
+                continue
+            
+            # Add ADI ranking to tally
+            try:
+                adi[zc][0] += int(s[4])
+                adi[zc][1] += 1
+            except ValueError:
+                pass
+        
+        # Average 9-digit values across 5-digit codes
+        for zc in pop:
+            if adi[zc][1] > 0:
+                pop[zc][4] = adi[zc][0]/adi[zc][1]
     
     # Write population output file
     with open(popfile, 'w') as f:
