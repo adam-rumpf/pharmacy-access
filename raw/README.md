@@ -30,7 +30,7 @@ The raw data files for each location should be included in subdirectories with t
 ```
 chicago/
     IL_2020_ADI_9 Digit Zip Code_v3.2.csv
-    OVID-19_Cases__Test_and_Deaths_by_ZIP_Code.csv
+    COVID-19_Cases__Test_and_Deaths_by_ZIP_Code.csv
     COVID-19_Vaccination_Locations.csv
     COVID-19_Vaccinations_by_ZIP_Code.csv
 santa_clara/
