@@ -72,7 +72,7 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             if line[0].isdigit() == False:
                 continue
             
-            s = line.split(',')
+            s = line.strip().split(',')
             zc = int(s[0]) # current row's ZIP code
             
             # Initialize empty entry for a new ZIP code
@@ -92,7 +92,7 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             if line[0].isdigit() == False:
                 continue
             
-            s = line.split(',')
+            s = line.strip().split(',')
             zc = int(s[0]) # current row's ZIP code
             
             # Gather cumulative vaccinations
@@ -115,7 +115,7 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             if line[1].isdigit() == False:
                 continue
             
-            s = line.replace('"', '').split(',')
+            s = line.replace('"', '').strip().split(',')
             
             # Take 5-digit header
             zc = int(s[0][:5])
@@ -156,7 +156,7 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             if line[0].isdigit() == False:
                 continue
             
-            s = line.split(',')
+            s = line.strip().split(',')
             fi = int(s[0]) # current row's facility ID
             
             # Initialize empty entry for a new facility
