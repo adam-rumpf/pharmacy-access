@@ -138,11 +138,16 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
         sk = sorted(pdic.keys())
+        index = 0
         for i in range(len(sk)):
-            line = str(i) + '\t' + str(sk[i]) + '\t'
+            # Skip lines with no coordinates
+            if pdic[sk[i]][0] == 0 or pdic[sk[i]][1] == 0:
+                continue
+            line = str(index) + '\t' + str(sk[i]) + '\t'
             for item in pdic[sk[i]]:
                 line += str(item) + '\t'
             f.write(line + '\n')
+            index += 1
     
     # Initialize facility dictionary
     fdic = dict()
@@ -201,12 +206,43 @@ def process_santa_clara(popfile="santa_clara_pop.tsv",
     # Define location-specific file names
     adi_file = os.path.join("santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
-    census_file = os.path.join("santa_clara", "CensusTract2020.csv")
+    census_file = os.path.join("santa_clara", "2022_gaz_tracts_06.txt")
     vacc_file = os.path.join("santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
     
     # Initialize population center dictionary
     pdic = dict()
+    
+    # Gather vaccination rates
+    with open(vacc_file, 'r') as f:
+        
+        for line in f:
+            
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            s = line.strip().split(',')
+            fips = int(s[0]) # current row's FIPS
+            
+            # Initialize empty entry for a new FIPS
+            if fips not in pdic:
+                pdic[fips] = [0 for i in range(5)]
+            
+            # Gather population and vaccinations
+            try:
+                pdic[fips][2] = int(s[2])
+                v = int(s[3]) # Vaccination count
+                # Compute vaccination rate, capped at 0.95
+                if pdic[fips][2] <= 0:
+                    pdic[fips][3] = 0.0
+                else:
+                    pdic[fips][3] = min(0.95, v/pdic[fips][2])
+                    ###
+                    # Decide how to handle cases >0.95
+            except ValueError:
+                pdic[fips][2] = 0
+                pdic[fips][3] = 0.0
     
     # Gather tract locations
     with open(census_file, 'r') as f:
@@ -217,26 +253,62 @@ def process_santa_clara(popfile="santa_clara_pop.tsv",
             if line.strip()[-1].isdigit() == False:
                 continue
             
-            s = line.strip().split(',')
-            tid = int(s[-13]) # current row's tract ID
+            s = line.strip().split('\t')
+            fips = int(s[1]) # current row's FIPS
             
-            # Initialize empty entry for a new tract ID
-            if tid not in pdic:
-                pdic[tid] = [0 for i in range(5)]
+            # Skip tracts not logged in the vaccination file
+            if fips not in pdic:
+                continue
             
             # Gather coordinates
-            pdic[tid][0] = float(s[-6])
-            pdic[tid][1] = float(s[-5])
+            pdic[fips][0] = float(s[6])
+            pdic[fips][1] = float(s[7])
+    
+    # Gather ADI rankings
+    with open(adi_file, 'r') as f:
+        
+        # Initialize dictionary to group 12-digit FIPS by 11-digit FIPS
+        adi = dict([(fips, [0, 0]) for fips in pdic])
+        
+        for line in f:
+            
+            # Skip comment line
+            if line[2].isdigit() == False:
+                continue
+            
+            s = line.replace('"', '').strip().split(',')
+            
+            # Take 11-digit header
+            fips = int(s[3][:11])
+            if fips not in pdic:
+                continue
+            
+            # Add ADI ranking to tally
+            try:
+                adi[fips][0] += int(s[2])
+                adi[fips][1] += 1
+            except ValueError:
+                pass
+        
+        # Average 12-digit values across 11-digit codes
+        for fips in pdic:
+            if adi[fips][1] > 0:
+                pdic[fips][4] = adi[fips][0]/adi[fips][1]
     
     # Write population output file
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
         sk = sorted(pdic.keys())
+        index = 0
         for i in range(len(sk)):
-            line = str(i) + '\t' + str(sk[i]) + '\t'
+            # Skip lines with no coordinates
+            if pdic[sk[i]][0] == 0 or pdic[sk[i]][1] == 0:
+                continue
+            line = str(index) + '\t' + str(sk[i]) + '\t'
             for item in pdic[sk[i]]:
                 line += str(item) + '\t'
             f.write(line + '\n')
+            index += 1
     
     # Write facility output file
     with open(facfile, 'w') as f:
@@ -248,5 +320,5 @@ def process_santa_clara(popfile="santa_clara_pop.tsv",
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-#process_chicago()
+process_chicago()
 process_santa_clara()

@@ -10,8 +10,8 @@ A population file is generated for each location, summarizing population center-
 * `name`: The unique identifier given to this population center within its source file (usually FIPS or ZIP code).
 * `lat`: Latitude of centroid.
 * `lon`: Longitude of centroid.
-* `pop`: Population, as of the 2020 census.
-* `vacc`: Vaccination rate, as of the most recent data.
+* `pop`: Population, as of the most recent available census or estimate.
+* `vacc`: Vaccination rate (between 0.0 and 1.0), as of the most recent data.
 * `adi`: 2022 [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) ranking.
 
 ## Facility File Format
@@ -54,5 +54,5 @@ Data mostly collected from the [Chicago Data Portal](https://data.cityofchicago.
 Data mostly collected from the [County of Santa Clara Open Data Portal](https://data.sccgov.org/) on November 3, 2022.
 
 * [`CA_2020_ADI_Census_Block_Group_v3.2.csv`](https://www.neighborhoodatlas.medicine.wisc.edu/): Census tract-level [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) rankings for California, indexed by FIPS.
-* [`CensusTract2020.csv`](https://data.sccgov.org/Government/CensusTract2020/4z77-invd): Santa Clara County census tract information from the 2020 census.
+* [`2022_gaz_tracts_06.txt`](https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html): California gazetteer files from the 2020 census.
 * [`COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv`](https://data.sccgov.org/COVID-19/COVID-19-Vaccination-among-County-Residents-by-Cen/qx2e-7jz2): Santa Clara County COVID-19 vaccination rates by census tract.
