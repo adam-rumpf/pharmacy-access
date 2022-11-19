@@ -8,4 +8,4 @@ data/*
 processed/*
 !preprocessed/*.md
 results/*
-!stats/*.md
+!results/*.md
