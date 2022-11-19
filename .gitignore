@@ -3,9 +3,9 @@
 *.pyc
 
 # Data files
-raw/*
-!raw/*.md
-!raw/*.py
-preprocessed/*
+data/*
+!data/*.md
+processed/*
 !preprocessed/*.md
-!preprocessed/*.py
+results/*
+!stats/*.md

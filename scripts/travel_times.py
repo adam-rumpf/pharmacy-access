@@ -24,7 +24,7 @@ def travel_time(origin, destination):
         (float) -- Travel time (minutes).
     """
     
-    ### Add options for thigns like travel mode and time of day
+    ### Add options for things like travel mode and time of day
     
     pass
 

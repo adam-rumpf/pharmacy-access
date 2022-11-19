@@ -43,22 +43,28 @@ def point_to_coords(point):
 # Location-Specific Preprocessing Scripts
 #==============================================================================
 
-def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
+def process_chicago(popfile=os.path.join("..", "processed", "chicago",
+                                         "chicago_pop.tsv"),
+                    facfile=os.path.join("..", "processed", "chicago",
+                                         "chicago_fac.tsv")):
     """Preprocessing scripts for the Chicago data.
     
     Optional keyword arguments:
-        popfile (str) -- Population output file path. Defaults to a local file
-            named "chicago_pop.tsv".
-        facfile (str) -- Facility output file path. Defaults to a local file
-            named "chicago_fac.tsv".
+        popfile (str) -- Population output file path. Defaults to a file in the
+            processed/ directory named "chicago_pop.tsv".
+        facfile (str) -- Facility output file path. Defaults to a file in the
+            processed/ directory named "chicago_fac.tsv".
     """
     
     # Define location-specific file names
-    case_file = os.path.join("chicago",
+    case_file = os.path.join("..", "data", "chicago",
                            "COVID-19_Cases__Tests__and_Deaths_by_ZIP_Code.csv")
-    fac_file = os.path.join("chicago", "COVID-19_Vaccination_Locations.csv")
-    vacc_file = os.path.join("chicago","COVID-19_Vaccinations_by_ZIP_Code.csv")
-    adi_file = os.path.join("chicago", "IL_2020_ADI_9 Digit Zip Code_v3.2.csv")
+    fac_file = os.path.join("..", "data", "chicago",
+                            "COVID-19_Vaccination_Locations.csv")
+    vacc_file = os.path.join("..", "data", "chicago",
+                             "COVID-19_Vaccinations_by_ZIP_Code.csv")
+    adi_file = os.path.join("..", "data", "chicago",
+                            "IL_2020_ADI_9 Digit Zip Code_v3.2.csv")
     
     # Initialize population center dictionary
     pdic = dict()
@@ -96,12 +102,22 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
             zc = int(s[0]) # current row's ZIP code
             
             # Gather cumulative vaccinations
-            ### Fix this, since this data does not include vaccination rates
-            ### per ZIP code
+            ### Fix this, since this data do not include vaccination rates
+            ### per ZIP code of residence, which leads to many values
+            ### greater than 100%.
             try:
                 pdic[zc][3] += int(s[4])
             except ValueError:
                 pass
+            
+        # Compute vaccination rates
+        ### Currently using a 95% cap as a placeholder.
+        for zc in pdic:
+            
+            if pdic[zc][2] <= 0:
+                pdic[zc][3] = 0.0
+            else:
+                pdic[zc][3] = min(0.95, pdic[zc][3]/pdic[zc][2])
     
     # Gather ADI rankings
     with open(adi_file, 'r') as f:
@@ -192,22 +208,25 @@ def process_chicago(popfile="chicago_pop.tsv", facfile="chicago_fac.tsv"):
 
 #------------------------------------------------------------------------------
 
-def process_santa_clara(popfile="santa_clara_pop.tsv",
-                        facfile="santa_clara_fac.tsv"):
+def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
+                                             "santa_clara_pop.tsv"),
+                        facfile=os.path.join("..", "processed", "santa_clara",
+                                             "santa_clara_fac.tsv")):
     """Preprocessing scripts for the Santa Clara data.
     
     Optional keyword arguments:
-        popfile (str) -- Population output file path. Defaults to a local file
-            named "santa_clara_pop.tsv".
-        facfile (str) -- Facility output file path. Defaults to a local file
-            named "santa_clara_fac.tsv".
+        popfile (str) -- Population output file path. Defaults to a file in the
+            processed/ directory named "santa_clara_pop.tsv".
+        facfile (str) -- Facility output file path. Defaults to a file in the
+            processed/ directory named "santa_clara_fac.tsv".
     """
     
     # Define location-specific file names
-    adi_file = os.path.join("santa_clara",
+    adi_file = os.path.join("..", "data", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
-    census_file = os.path.join("santa_clara", "2022_gaz_tracts_06.txt")
-    vacc_file = os.path.join("santa_clara",
+    census_file = os.path.join("..", "data", "santa_clara",
+                               "2022_gaz_tracts_06.txt")
+    vacc_file = os.path.join("..", "data", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
     
     # Initialize population center dictionary
