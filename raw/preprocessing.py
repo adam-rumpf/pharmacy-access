@@ -205,12 +205,38 @@ def process_santa_clara(popfile="santa_clara_pop.tsv",
     vacc_file = os.path.join("santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
     
-    ###
+    # Initialize population center dictionary
+    pdic = dict()
+    
+    # Gather tract locations
+    with open(census_file, 'r') as f:
+        
+        for line in f:
+            
+            # Skip comment line
+            if line.strip()[-1].isdigit() == False:
+                continue
+            
+            s = line.strip().split(',')
+            tid = int(s[-13]) # current row's tract ID
+            
+            # Initialize empty entry for a new tract ID
+            if tid not in pdic:
+                pdic[tid] = [0 for i in range(5)]
+            
+            # Gather coordinates
+            pdic[tid][0] = float(s[-6])
+            pdic[tid][1] = float(s[-5])
     
     # Write population output file
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
-        ###
+        sk = sorted(pdic.keys())
+        for i in range(len(sk)):
+            line = str(i) + '\t' + str(sk[i]) + '\t'
+            for item in pdic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
     
     # Write facility output file
     with open(facfile, 'w') as f:
@@ -222,5 +248,5 @@ def process_santa_clara(popfile="santa_clara_pop.tsv",
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-process_chicago()
+#process_chicago()
 process_santa_clara()
