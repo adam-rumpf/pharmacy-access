@@ -3,7 +3,8 @@
 *.pyc
 
 # Data files
-processed/*
-!processed/*.md
-results/*
-!results/*.md
+data/*/*
+processed/*/*
+results/*/*
+!*.md
+!.gitkeep
