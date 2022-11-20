@@ -3,8 +3,6 @@
 *.pyc
 
 # Data files
-data/*
-!data/*.md
 processed/*
 !processed/*.md
 results/*
