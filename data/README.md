@@ -19,7 +19,7 @@ The files for each location, along with their sources, are explained below.
 Data mostly collected from the [Chicago Data Portal](https://data.cityofchicago.org/) on November 7, 2022.
 
 * [`COVID-19_Cases__Test_and_Deaths_by_ZIP_Code.csv`](https://data.cityofchicago.org/Health-Human-Services/COVID-19-Cases-Tests-and-Deaths-by-ZIP-Code/yhhz-zm2v): Historical data for Chicago COVID-19 cases and deaths by ZIP code. Also includes centroids of ZIP codes and populations by ZIP code.
-* [`COVID-19_Vaccination_Locations.csv`](https://data.cityofchicago.org/Health-Human-Services/COVID-19-Vaccination-Locations/6q3z-9maq): Geographic data for COVID-19 vaccine locations in Chicago.
+* [`COVID-19_Vaccination_Locations.csv`](https://data.cityofchicago.org/Health-Human-Services/COVID-19-Vaccination-Locations/6q3z-9maq): Geographic data for COVID-19 vaccine locations in Chicago. A couple of geographic coordinates missing from the data file have been filled in by hand using the given street address.
 * [`COVID-19_Vaccinations_by_ZIP_Code.csv`](https://data.cityofchicago.org/Health-Human-Services/COVID-19-Vaccinations-by-ZIP-Code/553k-3xzc): Historical data for Chicago COVID-19 vaccination rates by ZIP code. Also includes centroids of ZIP codes.
 * [`IL_2020_ADI_9 Digit Zip Code_v3.2.csv`](https://www.neighborhoodatlas.medicine.wisc.edu/): ZIP code-level [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) rankings for Illinois, indexed by ZIP code.
 

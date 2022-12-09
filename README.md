@@ -4,7 +4,7 @@ A collection of data processing scripts for use in an ongoing research project a
 
 ## Contents
 
-This repo includes three major subdirectories, each with its own README to explain its contents in more detail.
+This repo is organized into several major subdirectories, each with its own README to explain its contents in more detail.
 
 * `data/` is divided into subdirectories by location, and includes raw data files obtained from external sources. The data files, themselves, have been excluded from this repo, but their sources can be found in this subdirectory's README.
 * `processed/` is divided into subdirectories by location, and includes data files derived from the raw data, such as collated data tables and calculated travel time matrices.
