@@ -3,11 +3,17 @@
 The code below includes various scripts for generating required data from the
 preprocessed data files, notably including origin/destination travel time
 matrices.
-
-Travel times are computed using the Google Maps Distance Matrix API.
 """
 
-import requests
+import traveltimepy
+from tqdm import tqdm
+
+#==============================================================================
+# Global Constants
+#==============================================================================
+
+# Distance center file header (including column labels)
+DIST_HEADER = "pid\tfid\tpftime\tfptime\t\n"
 
 #==============================================================================
 # Common Functions
@@ -33,6 +39,7 @@ def travel_time(origin, destination):
 #==============================================================================
 
 ###
+### Use tqdm for OD pair progress bars
 
 #==============================================================================
 # Execution

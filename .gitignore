@@ -1,5 +1,6 @@
 # Python project files
 .venv/
+test/
 *.pyc
 
 # Data files
