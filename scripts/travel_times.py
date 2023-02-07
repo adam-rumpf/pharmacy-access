@@ -1,4 +1,4 @@
-"""COVID-19 Vaccine accessibility project data processing scripts.
+"""COVID-19 Vaccine accessibility project travel time scripts.
 
 The code below includes various scripts for generating required data from the
 preprocessed data files, notably including origin/destination travel time
