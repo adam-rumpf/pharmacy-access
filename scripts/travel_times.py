@@ -5,7 +5,6 @@ preprocessed data files, notably including origin/destination travel time
 matrices.
 """
 
-import traveltimepy
 from tqdm import tqdm
 
 #==============================================================================
