@@ -14,8 +14,8 @@ import os.path
 import re
 import time
 
-from geopy.geocoders import Nominatim
-from tqdm import tqdm
+import geopy
+import tqdm
 
 #==============================================================================
 # Global Constants
@@ -46,16 +46,30 @@ def point_to_coords(point):
 
 #------------------------------------------------------------------------------
 
-def address_to_coords(geocoder, address):
+def address_to_coords(address, geocoder=None):
     """Finds the latitude/longitude coordinates from a given address string.
     
     Positional arguments:
-        geocoder (Nominatim) -- A geopy geocoder object.
         address (str) -- The address string to search for.
+    
+    Optional keyword arguments:
+        geocoder (Nominatim) -- A geopy geocoder object. Defaults to None, in
+            which case a new geocoder is temporarily created.
     
     Returns:
         (tuple(float)) -- Latitude/longitude.
     """
+    
+    if geocoder == None:
+        # Try to get email address
+        try:
+            with open("email.txt", 'r') as f:
+                user_agent = f.read().strip().split()[0]
+        except FileNotFoundError:
+            user_agent = "user_agent"
+        
+        # Initialize a geocoder
+        geocoder = geopy.geocoders.Nominatim(user_agent=user_agent)
     
     location = geocoder.geocode(address)
     
@@ -91,11 +105,14 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
             user_agent = "user_agent"
     
     # Initialize a geocoder
-    gc = Nominatim(user_agent=user_agent)
+    gc = geopy.geocoders.Nominatim(user_agent=user_agent)
     
     # Read pharmacy fields from CSV file header
     with open(infile, 'r') as f:
         fields = f.readline().strip().split(',')
+    
+    # Add new lat/lon fields
+    fields += ["latitude", "longitude"]
     
     # Read contents of pharmacy CSV file
     with open(infile, 'r') as f:
@@ -104,44 +121,43 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
         pdic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
         
         # Look up the address on each row
-        for row in tqdm(pdic):
+        i = 0
+        for row in tqdm.tqdm(pdic):
+            i += 1
             
             # Get the address string
             address = (row["address line 1"] + ", " + row["city"] + ", "
                        + row["state"] + " " + row["zipcode"])
             
             # Geocode the address
-            (lat, lon) = address_to_coords(gc, address)
-            time.sleep(1) # Nominatim permits at most 1 request per second
+            retries = [] # list of rows that caused errors
+            try:
+                (lat, lon) = address_to_coords(address, gc)
+            except geopy.exc.GeocoderUnavailable:
+                retries.append(i)
+                (lat, lon) = (None, None)
+            except AttributeError:
+                retries.append(i)
+                (lat, lon) = (None, None)
+            time.sleep(1) # wait 1 second between Nominatim requests
             
             # Add address fields to dictionary line
             row["latitude"] = lat
             row["longitude"] = lon
-            
-            break
+    
+    if len(retries) > 0:
+        print("Errors in the following rows:\n" +
+              ", ".join([str(i) for i in retries]))
+    
+    del gc
     
     # Write the new pharmacy CSV file
-    with open(outfile, 'w') as f:
-        pass
-            
-#        for line in f:
-#            
-#            so += line
-#            s = line.strip().split(',')
-#            
-#            # For the comment line, simply add lat/lon fields
-#            if first:
-#                first = False
-#                so += ",latitude,longitude\n"
-#                continue
-#            
-#            # For the remaining lines, get the address
-#            if len(s[3]) > 0:
-#                address = ", ".join(s[2:7])
-#            else:
-#                address = ", ".join([s[2]] + s[4:7])
-#            
-#            print(address)###
+    with open(outfile, 'w', newline="") as f:
+        writer = csv.DictWriter(f, delimiter=',', quotechar='"',
+                                fieldnames=fields)
+        writer.writeheader()
+        for row in pdic:
+            writer.writerow(row)
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -446,5 +462,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #process_chicago()
 #process_santa_clara()
 
-###
-pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
+#pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"), os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"))
