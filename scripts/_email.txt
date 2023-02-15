@@ -1,0 +1,1 @@
+Replace this with a file called "email.txt" (no underscore) whose contents is simply a single line with your email address. This will be read and used as the user_agent field for the Nominatim geocoder API.

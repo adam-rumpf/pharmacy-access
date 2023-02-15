@@ -9,8 +9,13 @@ differently, a different function has been defined to perform the preprocessing
 for each location.
 """
 
+import csv
 import os.path
 import re
+import time
+
+from geopy.geocoders import Nominatim
+from tqdm import tqdm
 
 #==============================================================================
 # Global Constants
@@ -38,6 +43,105 @@ def point_to_coords(point):
     
     s = re.findall("[-.\d]+", point)
     return (float(s[1]), float(s[0]))
+
+#------------------------------------------------------------------------------
+
+def address_to_coords(geocoder, address):
+    """Finds the latitude/longitude coordinates from a given address string.
+    
+    Positional arguments:
+        geocoder (Nominatim) -- A geopy geocoder object.
+        address (str) -- The address string to search for.
+    
+    Returns:
+        (tuple(float)) -- Latitude/longitude.
+    """
+    
+    location = geocoder.geocode(address)
+    
+    return (location.latitude, location.longitude)
+
+#------------------------------------------------------------------------------
+
+def pharmacy_table_coords(infile, outfile=None, user_agent=None):
+    """Augments a pharmacy CSV file by adding latitude/longitude fields.
+    
+    Positional arguments:
+        infile (str) -- Pharmacy file path. This is a custom input file based
+            on data gathered by hand.
+    
+    Optional keyword arguments:
+        outfile (str) -- Output file path for the augmented pharmacy file.
+            Default None, in which case the original file is overwritten.
+        user_agent (str) -- User agent string to give to the geocoder. Default
+            None, in which case this script will attempt to read an email
+            address from a local "email.txt" file. If none is found, defaults
+            to the string "user_agent".
+    """
+    
+    if outfile == None:
+        outfile = infile
+    
+    # Try to get email address
+    if user_agent == None:
+        try:
+            with open("email.txt", 'r') as f:
+                user_agent = f.read().strip().split()[0]
+        except FileNotFoundError:
+            user_agent = "user_agent"
+    
+    # Initialize a geocoder
+    gc = Nominatim(user_agent=user_agent)
+    
+    # Read pharmacy fields from CSV file header
+    with open(infile, 'r') as f:
+        fields = f.readline().strip().split(',')
+    
+    # Read contents of pharmacy CSV file
+    with open(infile, 'r') as f:
+        
+        # Create a list of dictionaries for each row
+        pdic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+        
+        # Look up the address on each row
+        for row in tqdm(pdic):
+            
+            # Get the address string
+            address = (row["address line 1"] + ", " + row["city"] + ", "
+                       + row["state"] + " " + row["zipcode"])
+            
+            # Geocode the address
+            (lat, lon) = address_to_coords(gc, address)
+            time.sleep(1) # Nominatim permits at most 1 request per second
+            
+            # Add address fields to dictionary line
+            row["latitude"] = lat
+            row["longitude"] = lon
+            
+            break
+    
+    # Write the new pharmacy CSV file
+    with open(outfile, 'w') as f:
+        pass
+            
+#        for line in f:
+#            
+#            so += line
+#            s = line.strip().split(',')
+#            
+#            # For the comment line, simply add lat/lon fields
+#            if first:
+#                first = False
+#                so += ",latitude,longitude\n"
+#                continue
+#            
+#            # For the remaining lines, get the address
+#            if len(s[3]) > 0:
+#                address = ", ".join(s[2:7])
+#            else:
+#                address = ", ".join([s[2]] + s[4:7])
+#            
+#            print(address)###
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -339,5 +443,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-process_chicago()
-process_santa_clara()
+#process_chicago()
+#process_santa_clara()
+
+###
+pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
