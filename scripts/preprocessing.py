@@ -122,6 +122,7 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
         
         # Look up the address on each row
         i = 0
+        retries = [] # list of rows that caused errors
         for row in tqdm.tqdm(pdic):
             i += 1
             
@@ -130,7 +131,6 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
                        + row["state"] + " " + row["zipcode"])
             
             # Geocode the address
-            retries = [] # list of rows that caused errors
             try:
                 (lat, lon) = address_to_coords(address, gc)
             except geopy.exc.GeocoderUnavailable:
@@ -462,4 +462,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #process_chicago()
 #process_santa_clara()
 
-#pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"), os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"))
+pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
