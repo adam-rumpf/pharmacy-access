@@ -9,4 +9,5 @@ processed/*/*
 results/*/*
 !*.md
 !.gitkeep
+email.txt
 token.txt

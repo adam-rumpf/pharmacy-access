@@ -10,3 +10,7 @@ This repo is organized into several major subdirectories, each with its own READ
 * `processed/` is divided into subdirectories by location, and includes data files derived from the raw data, such as collated data tables and calculated travel time matrices.
 * `results/` is divied into subdirectories by location, and includes the output files from the statistical analysis.
 * `scripts/` contains the programs actually used to preprocess the data and to conduct a statistical analysis.
+
+## Files
+
+The raw data files, themselves, are not included in this repo, but their sources are indicated in the various subdirectory READMEs. Some of the scripts also require the use of a user email address or API token. These are meant to be stored in local files called `email.txt` or `token.txt`, which are also not included in this repo.

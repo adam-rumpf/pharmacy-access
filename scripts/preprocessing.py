@@ -9,8 +9,13 @@ differently, a different function has been defined to perform the preprocessing
 for each location.
 """
 
+import csv
 import os.path
 import re
+import time
+
+import geopy
+import tqdm
 
 #==============================================================================
 # Global Constants
@@ -38,6 +43,121 @@ def point_to_coords(point):
     
     s = re.findall("[-.\d]+", point)
     return (float(s[1]), float(s[0]))
+
+#------------------------------------------------------------------------------
+
+def address_to_coords(address, geocoder=None):
+    """Finds the latitude/longitude coordinates from a given address string.
+    
+    Positional arguments:
+        address (str) -- The address string to search for.
+    
+    Optional keyword arguments:
+        geocoder (Nominatim) -- A geopy geocoder object. Defaults to None, in
+            which case a new geocoder is temporarily created.
+    
+    Returns:
+        (tuple(float)) -- Latitude/longitude.
+    """
+    
+    if geocoder == None:
+        # Try to get email address
+        try:
+            with open("email.txt", 'r') as f:
+                user_agent = f.read().strip().split()[0]
+        except FileNotFoundError:
+            user_agent = "user_agent"
+        
+        # Initialize a geocoder
+        geocoder = geopy.geocoders.Nominatim(user_agent=user_agent)
+    
+    location = geocoder.geocode(address)
+    
+    return (location.latitude, location.longitude)
+
+#------------------------------------------------------------------------------
+
+def pharmacy_table_coords(infile, outfile=None, user_agent=None):
+    """Augments a pharmacy CSV file by adding latitude/longitude fields.
+    
+    Positional arguments:
+        infile (str) -- Pharmacy file path. This is a custom input file based
+            on data gathered by hand.
+    
+    Optional keyword arguments:
+        outfile (str) -- Output file path for the augmented pharmacy file.
+            Default None, in which case the original file is overwritten.
+        user_agent (str) -- User agent string to give to the geocoder. Default
+            None, in which case this script will attempt to read an email
+            address from a local "email.txt" file. If none is found, defaults
+            to the string "user_agent".
+    """
+    
+    if outfile == None:
+        outfile = infile
+    
+    # Try to get email address
+    if user_agent == None:
+        try:
+            with open("email.txt", 'r') as f:
+                user_agent = f.read().strip().split()[0]
+        except FileNotFoundError:
+            user_agent = "user_agent"
+    
+    # Initialize a geocoder
+    gc = geopy.geocoders.Nominatim(user_agent=user_agent)
+    
+    # Read pharmacy fields from CSV file header
+    with open(infile, 'r') as f:
+        fields = f.readline().strip().split(',')
+    
+    # Add new lat/lon fields
+    fields += ["latitude", "longitude"]
+    
+    # Read contents of pharmacy CSV file
+    with open(infile, 'r') as f:
+        
+        # Create a list of dictionaries for each row
+        pdic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+        
+        # Look up the address on each row
+        i = 0
+        for row in tqdm.tqdm(pdic):
+            i += 1
+            
+            # Get the address string
+            address = (row["address line 1"] + ", " + row["city"] + ", "
+                       + row["state"] + " " + row["zipcode"])
+            
+            # Geocode the address
+            retries = [] # list of rows that caused errors
+            try:
+                (lat, lon) = address_to_coords(address, gc)
+            except geopy.exc.GeocoderUnavailable:
+                retries.append(i)
+                (lat, lon) = (None, None)
+            except AttributeError:
+                retries.append(i)
+                (lat, lon) = (None, None)
+            time.sleep(1) # wait 1 second between Nominatim requests
+            
+            # Add address fields to dictionary line
+            row["latitude"] = lat
+            row["longitude"] = lon
+    
+    if len(retries) > 0:
+        print("Errors in the following rows:\n" +
+              ", ".join([str(i) for i in retries]))
+    
+    del gc
+    
+    # Write the new pharmacy CSV file
+    with open(outfile, 'w', newline="") as f:
+        writer = csv.DictWriter(f, delimiter=',', quotechar='"',
+                                fieldnames=fields)
+        writer.writeheader()
+        for row in pdic:
+            writer.writerow(row)
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -339,5 +459,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-process_chicago()
-process_santa_clara()
+#process_chicago()
+#process_santa_clara()
+
+#pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"), os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"))

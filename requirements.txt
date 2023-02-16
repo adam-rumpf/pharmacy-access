@@ -1,0 +1,9 @@
+certifi==2022.12.7
+charset-normalizer==2.1.1
+colorama==0.4.6
+geographiclib==2.0
+geopy==2.3.0
+idna==3.4
+requests==2.28.1
+tqdm==4.64.1
+urllib3==1.26.12
