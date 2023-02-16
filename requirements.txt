@@ -1,4 +1,0 @@
-colorama==0.4.6
-geographiclib==2.0
-geopy==2.3.0
-tqdm==4.64.1
