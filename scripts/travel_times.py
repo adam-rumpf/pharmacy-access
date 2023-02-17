@@ -5,7 +5,7 @@ preprocessed data files, notably including origin/destination travel time
 matrices.
 """
 
-from tqdm import tqdm
+import tqdm
 
 #==============================================================================
 # Global Constants
@@ -38,7 +38,7 @@ def travel_time(origin, destination):
 #==============================================================================
 
 ###
-### Use tqdm for OD pair progress bars
+### Use tqdm.tqdm for OD pair progress bars
 
 #==============================================================================
 # Execution
