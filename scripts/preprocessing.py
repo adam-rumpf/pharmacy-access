@@ -344,6 +344,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     # Define location-specific file names
     adi_file = os.path.join("..", "data", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
+    fac_file = os.path.join("..", "data", "santa_clara",
+                            "Santa_Clara_County_Pharmacies.csv")
     census_file = os.path.join("..", "data", "santa_clara",
                                "2022_gaz_tracts_06.txt")
     vacc_file = os.path.join("..", "data", "santa_clara",
@@ -449,10 +451,46 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             f.write(line + '\n')
             index += 1
     
+    # Initialize facility dictionary
+    fdic = dict()
+    
+    # Gather vaccination facility locations
+    with open(fac_file, 'r') as f:
+        
+        # Create a list of dictionaries for each row
+        pdic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+        namekey = list(pdic[0].keys())[0] # first key should be pharmacy name
+        
+        # Look up the address on each row
+        for row in pdic:
+            
+            # Get facility name
+            fi = row[namekey]
+            
+            # Initialize empty entry for a new facility
+            fdic[fi] = [0 for i in range(3)]
+            
+            # Try to get coordinates
+            try:
+                fdic[fi][0] = row["latitude"]
+                fdic[fi][1] = row["longitude"]
+            except KeyError:
+                fdic[fi][0] = None
+                fdic[fi][1] = None
+            
+            # Get capacity
+            ### Find a way to measure capacity.
+            fdic[fi][2] = 1
+    
     # Write facility output file
     with open(facfile, 'w') as f:
         f.write(FAC_HEADER)
-        ###
+        sk = sorted(fdic.keys())
+        for i in range(len(sk)):
+            line = str(i) + '\t' + str(sk[i]) + '\t'
+            for item in fdic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
 
 #==============================================================================
 # Execution
@@ -461,5 +499,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 # Comment or uncomment the function calls below to process each location.
 #process_chicago()
 #process_santa_clara()
-
-pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
+#pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
