@@ -42,6 +42,83 @@ def geodesic_distance(p1, p2):
     
     return geopy.distance.geodesic(p1, p2).miles
 
+#------------------------------------------------------------------------------
+
+def _read_popfile(popfile):
+    """Reads a population file and returns dictionaries of data.
+    
+    Positional arguments:
+        popfile (str) -- Preprocessed population file path, which should
+            include the coordinates and population of each population
+            cetner.
+    
+    Returns:
+        pop (dict(int)) -- Dictionary of population counts.
+        coord(dict((float,float))) -- Dictionary of population center
+            coordinates, as (latitude,longitude) tuples.
+    
+    All dictionaries are indexed by the population center IDs contained in the
+    first column of the population file.
+    """
+    
+    # Initialize dictionaries
+    pop = dict() # dictionary of populations by popfile index
+    coord = dict() # dictionary of latitutde/longitude pairs by popfile index
+    
+    # Read file
+    with open(popfile, 'r') as f:
+        
+        for line in f:
+            
+            # Skip the comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            # Get numbers from line
+            s = line.strip().split('\t')
+            pop[int(s[0])] = int(s[POP_POP])
+            coord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+    
+    return (pop, coord)
+
+#------------------------------------------------------------------------------
+
+def _read_facfile(facfile):
+    """Reads a facility file and returns dictionaries of data.
+    
+    Positional arguments:
+        facfile (str) -- Preprocessed facility file path, which should include
+            the coordinates and capacity of each vaccination facility.
+    
+    Returns:
+        cap (dict(int)) -- Dictionary of facility capacities.
+        coord(dict((float,float))) -- Dictionary of facility coordinates,
+            as (latitude,longitude) tuples.
+    
+    All dictionaries are indexed by the facility IDs contained in the first
+    column of the facility file.
+    """
+    
+    # Initialize dictionaries
+    cap = dict() # dictionary of facility capacities by facfile index
+    coord = dict() # dictionary of latitude/longitude pairs by facfile index
+    
+    # Read file
+    with open(facfile, 'r') as f:
+        
+        for line in f:
+            
+            # Skip the comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            # Get numbers from line
+            s = line.strip().split('\t')
+            cap[int(s[0])] = float(s[FAC_CAP])
+            coord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
+    
+    return (cap, coord)
+
 #==============================================================================
 # Gravity Metric Scripts
 #==============================================================================
@@ -150,36 +227,10 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, speed=45.0):
     speed /= 60.0
     
     # Read population file
-    pop = dict() # dictionary of populations by popfile index
-    pcoord = dict() # dictionary of latitutde/longitude pairs by popfile index
-    with open(popfile, 'r') as f:
-        
-        for line in f:
-            
-            # Skip the comment line
-            if line[0].isdigit() == False:
-                continue
-            
-            # Get numbers from line
-            s = line.strip().split('\t')
-            pop[int(s[0])] = int(s[POP_POP])
-            pcoord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+    (pop, pcoord) = _read_popfile(popfile)
     
     # Read facility file
-    cap = dict() # dictionary of facility capacities by facfile index
-    fcoord = dict() # dictionary of latitude/longitude pairs by facfile index
-    with open(facfile, 'r') as f:
-        
-        for line in f:
-            
-            # Skip the comment line
-            if line[0].isdigit() == False:
-                continue
-            
-            # Get numbers from line
-            s = line.strip().split('\t')
-            cap[int(s[0])] = float(s[FAC_CAP])
-            fcoord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
+    (cap, fcoord) = _read_facfile(facfile)
     
     # Compute the facility crowdedness metrics
     fmet = dict() # facility crowdedness metrics by facfile index
@@ -326,36 +377,10 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, speed=45.0):
     speed /= 60.0
     
     # Read population file
-    pop = dict() # dictionary of populations by popfile index
-    pcoord = dict() # dictionary of latitutde/longitude pairs by popfile index
-    with open(popfile, 'r') as f:
-        
-        for line in f:
-            
-            # Skip the comment line
-            if line[0].isdigit() == False:
-                continue
-            
-            # Get numbers from line
-            s = line.strip().split('\t')
-            pop[int(s[0])] = int(s[POP_POP])
-            pcoord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+    (pop, pcoord) = _read_popfile(popfile)
     
     # Read facility file
-    cap = dict() # dictionary of facility capacities by facfile index
-    fcoord = dict() # dictionary of latitude/longitude pairs by facfile index
-    with open(facfile, 'r') as f:
-        
-        for line in f:
-            
-            # Skip the comment line
-            if line[0].isdigit() == False:
-                continue
-            
-            # Get numbers from line
-            s = line.strip().split('\t')
-            cap[int(s[0])] = float(s[FAC_CAP])
-            fcoord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
+    (cap, fcoord) = _read_facfile(facfile)
     
     # Compute the facility crowdedness metrics
     fmet = dict() # facility crowdedness metrics by facfile index
