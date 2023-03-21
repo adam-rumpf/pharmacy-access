@@ -54,7 +54,7 @@ def _read_popfile(popfile):
     
     Returns:
         pop (dict(int)) -- Dictionary of population counts.
-        coord(dict((float,float))) -- Dictionary of population center
+        coord (dict((float,float))) -- Dictionary of population center
             coordinates, as (latitude,longitude) tuples.
     
     All dictionaries are indexed by the population center IDs contained in the
@@ -92,7 +92,7 @@ def _read_facfile(facfile):
     
     Returns:
         cap (dict(int)) -- Dictionary of facility capacities.
-        coord(dict((float,float))) -- Dictionary of facility coordinates,
+        coord (dict((float,float))) -- Dictionary of facility coordinates,
             as (latitude,longitude) tuples.
     
     All dictionaries are indexed by the facility IDs contained in the first
@@ -118,6 +118,47 @@ def _read_facfile(facfile):
             coord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
     
     return (cap, coord)
+
+#------------------------------------------------------------------------------
+
+def _augment_file(outfile, infile, column, label, default="-1"):
+    """Augments a population or facility file with a new column.
+    
+    Positional arguments:
+        outfile (str) -- Output population/facility file path.
+        infile (str) -- Preprocessed population/facility file path.
+        column (dict(float)) -- Dictionary of entries for the new table
+            column. The keys of the dictionary should correspond to the
+            indices in the first column of the input file.
+        label (str) -- Label for the new column. Since the output file is
+            a tab-separated value table, avoid the use of tab characters.
+    
+    Optional keyword arguments:
+        default (str) -- Default value for rows with no corresponding
+            dictionary value. Defaults to "-1".
+    
+    This is meant for use in adding a column of population accessibility
+    metrics to a population file, or facility crowding metrics to a facility
+    file. It works by copying each row of the original file and adding a new
+    element to the end of each row corresponding to that row's index.
+    """
+    
+    with open(poutfile, 'w') as f:
+        with open(popfile, 'r') as g:
+            for line in g:
+                
+                # Copy header with a new column label
+                if line[0].isdigit() == False:
+                    f.write(line.strip() + "\t" + label + "\t\n")
+                    continue
+                
+                # Append the new column element to the following rows
+                i = int(line.split('\t')[0]) # current row index
+                if i in column:
+                    c = column[i] # dictionary element of current line
+                else:
+                    c = default # default element for missing indices
+                f.write(line.strip() + '\t' + str(c) + "\t\n")
 
 #==============================================================================
 # Gravity Metric Scripts
@@ -179,35 +220,11 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     
     # Write facility output file with a new crowdedness metric column
     print("Writing facility metric file.")
-    with open(foutfile, 'w') as f:
-        with open(facfile, 'r') as g:
-            for line in g:
-                
-                # Copy header with a new metric column
-                if line[0].isdigit() == False:
-                    f.write(line.strip() + "\tcrowding\t\n")
-                    continue
-                
-                # Append the metric line to the following rows
-                i = int(line.split('\t')[0]) # current facility index
-                m = fmet[i] # current facility metric
-                f.write(line.strip() + '\t' + str(m) + "\t\n")
+    _augment_file(foutfile, facfile, fmet, "crowding")
     
     # Write population output file with a new accessibility metric column
     print("Writing population metric file.")
-    with open(poutfile, 'w') as f:
-        with open(popfile, 'r') as g:
-            for line in g:
-                
-                # Copy header with a new metric column
-                if line[0].isdigit() == False:
-                    f.write(line.strip() + "\taccess\t\n")
-                    continue
-                
-                # Append the metric line to the following rows
-                i = int(line.split('\t')[0]) # current population index
-                m = pmet[i] # current population metric
-                f.write(line.strip() + '\t' + str(m) + "\t\n")
+    _augment_file(poutfile, popfile, pmet, "access")
 
 #------------------------------------------------------------------------------
 
@@ -329,35 +346,11 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     
     # Write facility output file with a new crowdedness metric column
     print("Writing facility metric file.")
-    with open(foutfile, 'w') as f:
-        with open(facfile, 'r') as g:
-            for line in g:
-                
-                # Copy header with a new metric column
-                if line[0].isdigit() == False:
-                    f.write(line.strip() + "\tcrowding\t\n")
-                    continue
-                
-                # Append the metric line to the following rows
-                i = int(line.split('\t')[0]) # current facility index
-                m = fmet[i] # current facility metric
-                f.write(line.strip() + '\t' + str(m) + "\t\n")
+    _augment_file(foutfile, facfile, fmet, "crowding")
     
     # Write population output file with a new accessibility metric column
     print("Writing population metric file.")
-    with open(poutfile, 'w') as f:
-        with open(popfile, 'r') as g:
-            for line in g:
-                
-                # Copy header with a new metric column
-                if line[0].isdigit() == False:
-                    f.write(line.strip() + "\taccess\t\n")
-                    continue
-                
-                # Append the metric line to the following rows
-                i = int(line.split('\t')[0]) # current population index
-                m = pmet[i] # current population metric
-                f.write(line.strip() + '\t' + str(m) + "\t\n")
+    _augment_file(poutfile, popfile, pmet, "access")
 
 #------------------------------------------------------------------------------
 
