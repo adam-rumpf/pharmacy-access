@@ -78,10 +78,10 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     distance (larger beta causes more distant locations to receive less
     weight).
     
-    We then compute the accessibility metric for each facility as a distance-
-    weighted sum of "capacity-to-crowdedness" ratios for each facility
-    consisting of a sum of all capacity to crowdedness ratios over all
-    facilities, each scaled by a weight that decays over distance
+    We then compute the accessibility metric for each community as a
+    distance-weighted sum of "capacity-to-crowdedness" ratios for each
+    facility consisting of a sum of all capacity to crowdedness ratios over
+    all facilities, each scaled by a weight that decays over distance
         
         A_i = sum_(j=1)^n (S_j d_ij^(-beta))/V_j
     
@@ -219,8 +219,187 @@ def _gravity_metric_file(popfile, facfile, distfile, beta=1.0):
     return (None, None)
 
 #==============================================================================
+# 2SFCA Metric Scripts
+#==============================================================================
+
+def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
+               cutoff=30.0):
+    """Computes a table of 2SFCA metrics for a given community.
+    
+    Positional arguments:
+        poutfile (str) -- Output population file path.
+        foutfile (str) -- Output facility file path.
+        popfile (str) -- Preprocessed population file path, which should
+            include the coordinates and population of each population center.
+        facfile (str) -- Preprocessed facility file path, which should include
+            the coordinates and capacity of each vaccination facility.
+    
+    Optional keyword arguments:
+        distfile (str) -- Preprocessed distance file path, which should include
+            the travel times between each population center/facility pair.
+            Defaults to None, in which case geodesic distances are computed and
+            used as needed.
+        cutoff (float) -- Travel time cutoff for defining catchment areas (in
+            minutes). Defaults to 30.0.
+    
+    This function implements the two-step floating catchment area (2SFCA)
+    metric as described in Luo and Wang 2003 (doi:10.1068/b29120). We begin by
+    computing a "crowdedness" metric for each facility by dividing its
+    capacity by the population within that facility's catchment area
+        
+        R_j = S_j/(sum_{k:d_kj<=d_0} P_k)
+    
+    where R_j is the crowdedness metric for facility j, P_k is the population
+    of center k, d_kj is the distance (or travel time) from k to j, and d_0 is
+    a distance (or travel time) cutoff used to define catchment areas. A
+    larger value of d_0 results in larger catchment area definitions.
+    
+    We then compute the accessibiility metric for each community as a sum of
+    crowdedness metrics for all facilities within the community's catchment
+    area
+        
+        A_i = sum_{k:d_ij<=d_0} R_j
+    
+    where A_i is the metric of population center i and the remaining notation
+    is the same as above. The metric is called "two-step" because of how R_j
+    and A_i are computed in a two-step process.
+    
+    The output files are augmented versions of the input files, with a new
+    column of crowdedness or accessibility metrics appended to the original
+    tables.
+    """
+    
+    # Call an appropriate subroutine depending on distance specification
+    if distfile == None:
+        (fmet, pmet) = _fca_metric_geodesic(popfile, facfile, cutoff=cutoff)
+    else:
+        (fmet, pmet) = _fca_metric_file(popfile, facfile, distfile,
+                                            cutoff=cutoff)
+    
+    # Write facility output file with a new crowdedness metric column
+    print("Writing facility metric file.")
+    with open(foutfile, 'w') as f:
+        with open(facfile, 'r') as g:
+            for line in g:
+                
+                # Copy header with a new metric column
+                if line[0].isdigit() == False:
+                    f.write(line.strip() + "\tcrowding\t\n")
+                    continue
+                
+                # Append the metric line to the following rows
+                i = int(line.split('\t')[0]) # current facility index
+                m = fmet[i] # current facility metric
+                f.write(line.strip() + '\t' + str(m) + "\t\n")
+    
+    # Write population output file with a new accessibility metric column
+    print("Writing population metric file.")
+    with open(poutfile, 'w') as f:
+        with open(popfile, 'r') as g:
+            for line in g:
+                
+                # Copy header with a new metric column
+                if line[0].isdigit() == False:
+                    f.write(line.strip() + "\taccess\t\n")
+                    continue
+                
+                # Append the metric line to the following rows
+                i = int(line.split('\t')[0]) # current population index
+                m = pmet[i] # current population metric
+                f.write(line.strip() + '\t' + str(m) + "\t\n")
+
+#------------------------------------------------------------------------------
+
+def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, speed=45.0):
+    """The geodesic distance version of fca_metric.
+    
+    This script computes 2SFCA metrics using geodesic distances computed as-
+    needed. It is automatically called by fca_metric when a distance file is
+    not provided. It returns dictionaries of facility and population metrics
+    rather than writing the results directly to a file.
+    
+    Geodesic distances are used to compute travel times in minutes, assuming a
+    constant speed (in mph).
+    """
+    
+    # Convert speed to miles per minute
+    speed /= 60.0
+    
+    # Read population file
+    pop = dict() # dictionary of populations by popfile index
+    pcoord = dict() # dictionary of latitutde/longitude pairs by popfile index
+    with open(popfile, 'r') as f:
+        
+        for line in f:
+            
+            # Skip the comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            # Get numbers from line
+            s = line.strip().split('\t')
+            pop[int(s[0])] = int(s[POP_POP])
+            pcoord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+    
+    # Read facility file
+    cap = dict() # dictionary of facility capacities by facfile index
+    fcoord = dict() # dictionary of latitude/longitude pairs by facfile index
+    with open(facfile, 'r') as f:
+        
+        for line in f:
+            
+            # Skip the comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            # Get numbers from line
+            s = line.strip().split('\t')
+            cap[int(s[0])] = float(s[FAC_CAP])
+            fcoord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
+    
+    # Compute the facility crowdedness metrics
+    fmet = dict() # facility crowdedness metrics by facfile index
+    print("Computing facility crowdedness metrics using geodesic distance.")
+    for j in tqdm.tqdm(cap):
+        fmet[j] = 0.0
+        for k in pop:
+            d = geodesic_distance(pcoord[k], fcoord[j])/speed # time (minutes)
+            if d <= cutoff:
+                fmet[j] += pop[k]
+    
+    # Compute the population accessibility metrics
+    pmet = dict() # population accessibility metrics by popfile index
+    print("Computing population accessibility metrics using geodesic distance.")
+    for i in tqdm.tqdm(pop):
+        pmet[i] = 0.0
+        for j in cap:
+            d = geodesic_distance(pcoord[i], fcoord[j])/speed # time (minutes)
+            if d <= cutoff:
+                pmet[i] += fmet[j]
+    
+    # Return facility and population metric dictionaries
+    return (fmet, pmet)
+
+#------------------------------------------------------------------------------
+
+def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0):
+    """The distance file version of gravity_metric.
+    
+    This script computes gravity metrics using a predefined distance file. It
+    is automatically called by gravity_metric when a distance file is provided.
+    It returns dictionaries of facility and population metrics rather than
+    writing the results directly to a file.
+    """
+    
+    ###
+    
+    # Return facility and population metric dictionaries
+    return (None, None)
+
+#==============================================================================
 # Execution
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-gravity_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
+#gravity_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
+fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_30.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_30.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
