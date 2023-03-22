@@ -143,8 +143,8 @@ def _augment_file(outfile, infile, column, label, default="-1"):
     element to the end of each row corresponding to that row's index.
     """
     
-    with open(poutfile, 'w') as f:
-        with open(popfile, 'r') as g:
+    with open(outfile, 'w') as f:
+        with open(infile, 'r') as g:
             for line in g:
                 
                 # Copy header with a new column label
@@ -419,5 +419,5 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0):
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-#gravity_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
-fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_30.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_30.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
+#gravity_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00b.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00b.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
+fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_25.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_25.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=25.0)
