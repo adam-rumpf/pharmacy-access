@@ -419,5 +419,9 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0):
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-#gravity_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00b.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00b.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=1.0)
-fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_25.tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_25.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=25.0)
+bl = {0.50: "0-50", 0.75: "0-75", 1.00: "1-00", 1.25: "1-25", 1.50: "1-50", 1.75: "1-75", 2.00: "2-00"}
+for beta in bl:
+    gravity_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_" + bl[beta] +".tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_" + bl[beta] + ".tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, beta=beta)
+co = {5: "005", 10: "010", 15: "015", 20: "020", 25: "025", 30: "030", 35: "035", 40: "040", 45: "045", 50: "050", 55: "055", 60: "060"}
+for cutoff in co:
+    fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_" + co[cutoff] + ".tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_" + co[cutoff] + ".tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=cutoff)
