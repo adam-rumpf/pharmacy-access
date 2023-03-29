@@ -379,11 +379,15 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, speed=45.0):
     fmet = dict() # facility crowdedness metrics by facfile index
     print("Computing facility crowdedness metrics using geodesic distance.")
     for j in tqdm.tqdm(cap):
-        fmet[j] = 0.0
+        p = 0 # total population in range
         for k in pop:
             d = geodesic_distance(pcoord[k], fcoord[j])/speed # time (minutes)
             if d <= cutoff:
-                fmet[j] += pop[k]
+                p += pop[k]
+        if p > 0:
+            fmet[j] = cap[j]/p
+        else:
+            fmet[j] = -1
     
     # Compute the population accessibility metrics
     pmet = dict() # population accessibility metrics by popfile index
@@ -391,6 +395,8 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, speed=45.0):
     for i in tqdm.tqdm(pop):
         pmet[i] = 0.0
         for j in cap:
+            if fmet[j] < 0:
+                continue
             d = geodesic_distance(pcoord[i], fcoord[j])/speed # time (minutes)
             if d <= cutoff:
                 pmet[i] += fmet[j]
