@@ -14,9 +14,6 @@ import tqdm
 # Global Constants
 #==============================================================================
 
-# Metric file header (including column labels)
-METRIC_HEADER = "id\tmetric\t\n"
-
 # Preprocessed file column numbers
 FAC_LAT = 2 # facility latitude
 FAC_LON = 3 # facility longitude
