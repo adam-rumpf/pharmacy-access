@@ -15,6 +15,7 @@ import re
 import time
 
 import geopy
+import geopy.distance
 import tqdm
 
 #==============================================================================
@@ -30,6 +31,21 @@ FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 #==============================================================================
 # Common Functions
 #==============================================================================
+
+def geodesic_distance(p1, p2):
+    """Measures the geodesic distance between two coordinate pairs.
+    
+    Positional arguments:
+        p1 (tuple(float)) -- First latitude/longitude pair.
+        p2 (tuple(float)) -- Second latitude/longitude pair.
+    
+    Returns:
+        (float) -- Geodesic distance (mi) between the coordinates.
+    """
+    
+    return geopy.distance.geodesic(p1, p2).miles
+
+#------------------------------------------------------------------------------
 
 def point_to_coords(point):
     """Extracts the latitude/longitude from a GIS POINT object.
@@ -158,6 +174,140 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
         writer.writeheader()
         for row in pdic:
             writer.writerow(row)
+
+#------------------------------------------------------------------------------
+
+def address_test(fname, tol=0.09469697, outfile=None):
+    """Checks for missing coordinates and likely address duplicates.
+    
+    Positional arguments:
+        fname (str) -- Path to an input file to test. This should be a
+            preprocessed population or facility file that includes latitude
+            and longitude columns.
+    
+    Optional keyword arguments:
+        tol (float) -- Distance tolerance (in miles). Defaults to 0.09469697,
+            which is approximately 500 ft. Pairs of coordinates within this
+            distance tolerance will be flagged as likely duplicates.
+        outfile (str) -- Path to an output report file. Defaults to None, in
+            which case the results of the search are printed to the terminal.
+    
+    This script is meant to be run after the main preprocessing scripts to
+    check for likely duplicate addresses in the main pharmacy list. It searches
+    for pairs of pharmacy coordinates within a set distance tolerance, which 
+    should then be reviewed manually.
+    
+    It also includes lists of addresses with no coordinates.
+    """
+    
+    # Initialize report string
+    s = ("Testing file: '" + 
+         str(os.path.basename(fname)) + "'" + "\nTolerance: " + str(tol) +
+         " mi (" + f"{5280*tol:.2f}" + "ft)")
+    
+    # Read file into a list of dictionaries
+    with open(fname, 'r') as f:
+        dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Find the appropriate latitude/longitude field names
+    latfield = "latitude"
+    if "latitude" not in dic[0]:
+        if "lat" not in dic[0]:
+            print("file includes no latitude field names")
+            return
+        lonfield = "lon"
+    lonfield = "longitude"
+    if "longitude" not in dic[0]:
+        if "lon" not in dic[0]:
+            print("file includes no longitude field names")
+            return
+        lonfield = "lon"
+    
+    # Find appropriate name field (beginning of string)
+    namefield = None
+    for key in dic[0].keys():
+        if "name" in key:
+            namefield = key
+            break
+    
+    # Process every unique pair of rows
+    print("Searching address pairs.")
+    missing = 0 # running total of missing coordinates
+    dupes = 0 # running total of likely duplicates
+    skip = False # whether to skip the current outer loop
+    for i in tqdm.tqdm(range(len(dic))):
+        if skip == True:
+            skip = False
+            continue
+        for j in range(i+1, len(dic)):
+            
+            # Get first coordinates (if they exist)
+            try:
+                c1 = (float(dic[i][latfield]), float(dic[i][lonfield]))
+            except ValueError:
+                # Report missing coordinates
+                missing += 1
+                s += "\n\nRow " + str(i+2) + "\nMissing coordinates"
+                
+                # Log address and continue
+                a1 = ""
+                if namefield != None:
+                    a1 += dic[i][namefield] + ", "
+                a1 += dic[i]["address line 1"]
+                if "address line 2" in dic[i]:
+                    a1 += ", " + dic[i]["address line 2"]
+                a1 += (", " + dic[i]["city"] + ", " + dic[i]["state"] + ", " +
+                       dic[i]["zipcode"])
+                s += "\n" + a1
+                
+                # Skip the rest of the current outer loop
+                skip = True
+                break
+            
+            # Get second coordinates (if they exist)
+            try:
+                c2 = (float(dic[j][latfield]), float(dic[j][lonfield]))
+            except ValueError:
+                # Skip missing j coordinates
+                continue
+            
+            # Log pairs with distance below tolerance
+            dist = geodesic_distance(c1, c2)
+            if dist <= tol:
+                
+                dupes += 1
+                s += ("\n\nRows " + str(i+2) + " and " + str(j+2) +
+                    "\nCoordinates closer than " +
+                    f"{dist:f} mi ({5280*dist:.2f} ft)")
+                
+                # Gather addresses
+                a1 = ""
+                if namefield != None:
+                    a1 += dic[i][namefield] + ", "
+                a1 += dic[i]["address line 1"]
+                if "address line 2" in dic[i]:
+                    a1 += ", " + dic[i]["address line 2"]
+                a1 += (", " + dic[i]["city"] + ", " + dic[i]["state"] + ", " +
+                       dic[i]["zipcode"])
+                a2 = ""
+                if namefield != None:
+                    a2 += dic[i][namefield] + ", "
+                a2 += dic[i]["address line 1"]
+                if "address line 2" in dic[j]:
+                    a2 += ", " + dic[j]["address line 2"]
+                a2 += (", " + dic[j]["city"] + ", " + dic[j]["state"] + ", " +
+                       dic[j]["zipcode"])
+                s += "\n" + a1 + "\n" + a2
+    
+    print(str(missing) + " missing coordinates found.")
+    print(str(dupes) + " likely duplicates found.")
+    
+    # Write report file or print report to screen
+    if outfile == None:
+        print("\n\n" + s + "\n")
+    else:
+        with open(outfile, 'w') as f:
+            f.write(s + "\n")
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -500,3 +650,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #process_chicago()
 #process_santa_clara()
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
+address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
