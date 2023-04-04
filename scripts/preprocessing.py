@@ -181,9 +181,8 @@ def address_test(fname, tol=0.09469697, outfile=None):
     """Checks for missing coordinates and likely address duplicates.
     
     Positional arguments:
-        fname (str) -- Path to an input file to test. This should be a
-            preprocessed population or facility file that includes latitude
-            and longitude columns.
+        fname (str) -- Path to an input file to test. This should be a raw
+            pharmacy location file including latitude and longitude fields.
     
     Optional keyword arguments:
         tol (float) -- Distance tolerance (in miles). Defaults to 0.09469697,
@@ -192,13 +191,20 @@ def address_test(fname, tol=0.09469697, outfile=None):
         outfile (str) -- Path to an output report file. Defaults to None, in
             which case the results of the search are printed to the terminal.
     
-    This script is meant to be run after the main preprocessing scripts to
-    check for likely duplicate addresses in the main pharmacy list. It searches
-    for pairs of pharmacy coordinates within a set distance tolerance, which 
-    should then be reviewed manually.
-    
-    It also includes lists of addresses with no coordinates.
+    This script is meant for use in preprocessing a raw pharmacy location file
+    to find entries with missing coordinates or pairs of likely duplicate
+    locations.
     """
+    
+    # Define standard location file field names
+    latfield = "latitude"
+    lonfield = "longitude"
+    namefield = "loc_name"
+    a1field = "loc_admin_street1"
+    a2field = "loc_admin_street2"
+    cityfield = "loc_admin_city"
+    statefield = "loc_admin_state"
+    zipfield = "loc_admin_zip"
     
     # Initialize report string
     s = ("Testing file: '" + 
@@ -209,26 +215,13 @@ def address_test(fname, tol=0.09469697, outfile=None):
     with open(fname, 'r') as f:
         dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
     
-    # Find the appropriate latitude/longitude field names
-    latfield = "latitude"
-    if "latitude" not in dic[0]:
-        if "lat" not in dic[0]:
-            print("file includes no latitude field names")
-            return
-        lonfield = "lon"
-    lonfield = "longitude"
-    if "longitude" not in dic[0]:
-        if "lon" not in dic[0]:
-            print("file includes no longitude field names")
-            return
-        lonfield = "lon"
-    
-    # Find appropriate name field (beginning of string)
-    namefield = None
-    for key in dic[0].keys():
-        if "name" in key:
-            namefield = key
-            break
+    # Verify that all required fields are present
+    if (latfield not in dic[0] or lonfield not in dic[0] or
+        namefield not in dic[0] or a1field not in dic[0] or
+        a2field not in dic[0] or cityfield not in dic[0] or
+        statefield not in dic[0] or zipfield not in dic[0]):
+        print("input file missing required fields")
+        return
     
     # Process every unique pair of rows
     print("Searching address pairs.")
@@ -247,17 +240,12 @@ def address_test(fname, tol=0.09469697, outfile=None):
             except ValueError:
                 # Report missing coordinates
                 missing += 1
-                s += "\n\nRow " + str(i+2) + "\nMissing coordinates"
+                s += "\n\nRow " + str(i+1) + "\nMissing coordinates"
                 
                 # Log address and continue
-                a1 = ""
-                if namefield != None:
-                    a1 += dic[i][namefield] + ", "
-                a1 += dic[i]["address line 1"]
-                if "address line 2" in dic[i]:
-                    a1 += ", " + dic[i]["address line 2"]
-                a1 += (", " + dic[i]["city"] + ", " + dic[i]["state"] + ", " +
-                       dic[i]["zipcode"])
+                a1 = (dic[i][namefield] + ", " + dic[i][a1field] + ", " +
+                      dic[i][a2field] + ", " + dic[i][cityfield] + ", " +
+                      dic[i][statefield] + ", " + dic[i][zipfield])
                 s += "\n" + a1
                 
                 # Skip the rest of the current outer loop
@@ -276,27 +264,17 @@ def address_test(fname, tol=0.09469697, outfile=None):
             if dist <= tol:
                 
                 dupes += 1
-                s += ("\n\nRows " + str(i+2) + " and " + str(j+2) +
+                s += ("\n\nRows " + str(i+1) + " and " + str(j+1) +
                     "\nCoordinates closer than " +
                     f"{dist:f} mi ({5280*dist:.2f} ft)")
                 
                 # Gather addresses
-                a1 = ""
-                if namefield != None:
-                    a1 += dic[i][namefield] + ", "
-                a1 += dic[i]["address line 1"]
-                if "address line 2" in dic[i]:
-                    a1 += ", " + dic[i]["address line 2"]
-                a1 += (", " + dic[i]["city"] + ", " + dic[i]["state"] + ", " +
-                       dic[i]["zipcode"])
-                a2 = ""
-                if namefield != None:
-                    a2 += dic[i][namefield] + ", "
-                a2 += dic[i]["address line 1"]
-                if "address line 2" in dic[j]:
-                    a2 += ", " + dic[j]["address line 2"]
-                a2 += (", " + dic[j]["city"] + ", " + dic[j]["state"] + ", " +
-                       dic[j]["zipcode"])
+                a1 = (dic[i][namefield] + ", " + dic[i][a1field] + ", " +
+                      dic[i][a2field] + ", " + dic[i][cityfield] + ", " +
+                      dic[i][statefield] + ", " + dic[i][zipfield])
+                a2 = (dic[j][namefield] + ", " + dic[j][a1field] + ", " +
+                      dic[j][a2field] + ", " + dic[j][cityfield] + ", " +
+                      dic[j][statefield] + ", " + dic[j][zipfield])
                 s += "\n" + a1 + "\n" + a2
     
     print(str(missing) + " missing coordinates found.")
@@ -648,6 +626,6 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 
 # Comment or uncomment the function calls below to process each location.
 #process_chicago()
-process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
+#process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
-#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
+address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
