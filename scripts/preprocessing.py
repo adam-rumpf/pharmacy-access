@@ -203,7 +203,7 @@ def address_test(fname, tol=0.09469697, outfile=None):
     # Initialize report string
     s = ("Testing file: '" + 
          str(os.path.basename(fname)) + "'" + "\nTolerance: " + str(tol) +
-         " mi (" + f"{5280*tol:.2f}" + "ft)")
+         " mi (" + f"{5280*tol:.2f}" + " ft)")
     
     # Read file into a list of dictionaries
     with open(fname, 'r') as f:
@@ -495,7 +495,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     adi_file = os.path.join("..", "data", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
     fac_file = os.path.join("..", "data", "santa_clara",
-                            "Santa_Clara_County_Pharmacies.csv")
+                            "Santa_Clara_County_Pharmacy_Locations.csv")
     census_file = os.path.join("..", "data", "santa_clara",
                                "2022_gaz_tracts_06.txt")
     vacc_file = os.path.join("..", "data", "santa_clara",
@@ -608,11 +608,11 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     with open(fac_file, 'r') as f:
         
         # Create a list of dictionaries for each row
-        pdic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
-        namekey = list(pdic[0].keys())[0] # first key should be pharmacy name
+        dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+        namekey = list(dic[0].keys())[4] # fourth key should be pharmacy name
         
         # Look up the address on each row
-        for row in pdic:
+        for row in dic:
             
             # Get facility name
             fi = row[namekey]
@@ -648,6 +648,6 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 
 # Comment or uncomment the function calls below to process each location.
 #process_chicago()
-#process_santa_clara()
+process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
-address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
+#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_2.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
