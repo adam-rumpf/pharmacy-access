@@ -15,6 +15,7 @@ import re
 import time
 
 import geopy
+import geopy.distance
 import tqdm
 
 #==============================================================================
@@ -30,6 +31,21 @@ FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 #==============================================================================
 # Common Functions
 #==============================================================================
+
+def geodesic_distance(p1, p2):
+    """Measures the geodesic distance between two coordinate pairs.
+    
+    Positional arguments:
+        p1 (tuple(float)) -- First latitude/longitude pair.
+        p2 (tuple(float)) -- Second latitude/longitude pair.
+    
+    Returns:
+        (float) -- Geodesic distance (mi) between the coordinates.
+    """
+    
+    return geopy.distance.geodesic(p1, p2).miles
+
+#------------------------------------------------------------------------------
 
 def point_to_coords(point):
     """Extracts the latitude/longitude from a GIS POINT object.
@@ -158,6 +174,118 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
         writer.writeheader()
         for row in pdic:
             writer.writerow(row)
+
+#------------------------------------------------------------------------------
+
+def address_test(fname, tol=0.09469697, outfile=None):
+    """Checks for missing coordinates and likely address duplicates.
+    
+    Positional arguments:
+        fname (str) -- Path to an input file to test. This should be a raw
+            pharmacy location file including latitude and longitude fields.
+    
+    Optional keyword arguments:
+        tol (float) -- Distance tolerance (in miles). Defaults to 0.09469697,
+            which is approximately 500 ft. Pairs of coordinates within this
+            distance tolerance will be flagged as likely duplicates.
+        outfile (str) -- Path to an output report file. Defaults to None, in
+            which case the results of the search are printed to the terminal.
+    
+    This script is meant for use in preprocessing a raw pharmacy location file
+    to find entries with missing coordinates or pairs of likely duplicate
+    locations.
+    """
+    
+    # Define standard location file field names
+    latfield = "latitude"
+    lonfield = "longitude"
+    namefield = "loc_name"
+    a1field = "loc_admin_street1"
+    a2field = "loc_admin_street2"
+    cityfield = "loc_admin_city"
+    statefield = "loc_admin_state"
+    zipfield = "loc_admin_zip"
+    
+    # Initialize report string
+    s = ("Testing file: '" + 
+         str(os.path.basename(fname)) + "'" + "\nTolerance: " + str(tol) +
+         " mi (" + f"{5280*tol:.2f}" + " ft)")
+    
+    # Read file into a list of dictionaries
+    with open(fname, 'r') as f:
+        dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Verify that all required fields are present
+    if (latfield not in dic[0] or lonfield not in dic[0] or
+        namefield not in dic[0] or a1field not in dic[0] or
+        a2field not in dic[0] or cityfield not in dic[0] or
+        statefield not in dic[0] or zipfield not in dic[0]):
+        print("input file missing required fields")
+        return
+    
+    # Process every unique pair of rows
+    print("Searching address pairs.")
+    missing = 0 # running total of missing coordinates
+    dupes = 0 # running total of likely duplicates
+    skip = False # whether to skip the current outer loop
+    for i in tqdm.tqdm(range(len(dic))):
+        if skip == True:
+            skip = False
+            continue
+        for j in range(i+1, len(dic)):
+            
+            # Get first coordinates (if they exist)
+            try:
+                c1 = (float(dic[i][latfield]), float(dic[i][lonfield]))
+            except ValueError:
+                # Report missing coordinates
+                missing += 1
+                s += "\n\nRow " + str(i+1) + "\nMissing coordinates"
+                
+                # Log address and continue
+                a1 = (dic[i][namefield] + ", " + dic[i][a1field] + ", " +
+                      dic[i][a2field] + ", " + dic[i][cityfield] + ", " +
+                      dic[i][statefield] + ", " + dic[i][zipfield])
+                s += "\n" + a1
+                
+                # Skip the rest of the current outer loop
+                skip = True
+                break
+            
+            # Get second coordinates (if they exist)
+            try:
+                c2 = (float(dic[j][latfield]), float(dic[j][lonfield]))
+            except ValueError:
+                # Skip missing j coordinates
+                continue
+            
+            # Log pairs with distance below tolerance
+            dist = geodesic_distance(c1, c2)
+            if dist <= tol:
+                
+                dupes += 1
+                s += ("\n\nRows " + str(i+1) + " and " + str(j+1) +
+                    "\nCoordinates closer than " +
+                    f"{dist:f} mi ({5280*dist:.2f} ft)")
+                
+                # Gather addresses
+                a1 = (dic[i][namefield] + ", " + dic[i][a1field] + ", " +
+                      dic[i][a2field] + ", " + dic[i][cityfield] + ", " +
+                      dic[i][statefield] + ", " + dic[i][zipfield])
+                a2 = (dic[j][namefield] + ", " + dic[j][a1field] + ", " +
+                      dic[j][a2field] + ", " + dic[j][cityfield] + ", " +
+                      dic[j][statefield] + ", " + dic[j][zipfield])
+                s += "\n" + a1 + "\n" + a2
+    
+    print(str(missing) + " missing coordinates found.")
+    print(str(dupes) + " likely duplicates found.")
+    
+    # Write report file or print report to screen
+    if outfile == None:
+        print("\n\n" + s + "\n")
+    else:
+        with open(outfile, 'w') as f:
+            f.write(s + "\n")
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -345,7 +473,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     adi_file = os.path.join("..", "data", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
     fac_file = os.path.join("..", "data", "santa_clara",
-                            "Santa_Clara_County_Pharmacies.csv")
+                            "Santa_Clara_County_Pharmacy_Locations.csv")
     census_file = os.path.join("..", "data", "santa_clara",
                                "2022_gaz_tracts_06.txt")
     vacc_file = os.path.join("..", "data", "santa_clara",
@@ -458,11 +586,11 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     with open(fac_file, 'r') as f:
         
         # Create a list of dictionaries for each row
-        pdic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
-        namekey = list(pdic[0].keys())[0] # first key should be pharmacy name
+        dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+        namekey = list(dic[0].keys())[4] # fourth key should be pharmacy name
         
         # Look up the address on each row
-        for row in pdic:
+        for row in dic:
             
             # Get facility name
             fi = row[namekey]
@@ -498,5 +626,6 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 
 # Comment or uncomment the function calls below to process each location.
 #process_chicago()
-#process_santa_clara()
+#process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
+address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
