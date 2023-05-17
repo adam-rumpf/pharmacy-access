@@ -5,6 +5,7 @@ test/
 
 # Data files
 data/*/*
+maps/*/*
 processed/*/*
 results/*/*
 !*.md
