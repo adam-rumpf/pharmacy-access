@@ -298,7 +298,8 @@ def travel_time_destination_list(orig, dlist, mapfile=None):
 # Batch Processing Scripts
 #==============================================================================
 
-def generate_distance_file(popfile, facfile, mapfile, distfile):
+def generate_distance_file(popfile, facfile, mapfile, distfile,
+    symmetric=False):
     """Generates a travel time file for a batch of population/facility files.
     
     Positional arguments:
@@ -308,6 +309,13 @@ def generate_distance_file(popfile, facfile, mapfile, distfile):
             the coordinates and capacity of each vaccination facility.
         mapfile (str) -- File path to a pre-downloaded .graphml map file.
         distfile (str) -- File path for output distance file.
+    
+    Keyword arguments:
+        symmetric (bool) -- Whether to treat pairwise travel times as
+            symmetric. Defaults to False, in which case travel times are
+            computed independently in both directions. If True, the population-
+            to-facility travel time is used for both directions. This saves
+            computation time at the cost of some realism.
     
     The distance file includes a table of all population/facility pairs and
     the (directional) pairwise distances between each pair.
@@ -329,46 +337,51 @@ def generate_distance_file(popfile, facfile, mapfile, distfile):
     for pid in tqdm.tqdm(pdic):
         
         # Find all distances from the current population center
-        ###dlist = [fdic[fid] for fid in fdic] # list of all facility coords
-        first_ids = list(fdic.keys())[0:2]###
-        dlist = [fdic[i] for i in first_ids]###
+        dlist = [fdic[fid] for fid in fdic] # list of all facility coords
         d = travel_time_destination_list(pdic[pid], dlist, mapfile)
         
         # Save distances in dictionary
         fids = list(fdic.keys()) # list of facility IDs
-        ###for j in range(len(fdic)):
-        for j in range(2):###
+        for j in range(len(fdic)):
             pfdist[(pid, fids[j])] = d[j]
-        
-        break###
     
     print(f"All pairs processed after {time.time()-t} seconds.")
+    
+    ###
+    print(pfdist)
+    print(pfdist.keys())
     
     # Find all facility-to-population distances
     print("Computing all facility-to-population distances.")
     t = time.time()
     for fid in tqdm.tqdm(fdic):
         
+        # Copy distances if symmetric
+        if symmetric == True:
+            pids = list(pdic.keys()) # list of population IDs
+            for j in range(len(pdic)):
+                fpdist[(pids[j], fid)] = pfdist[(pids[j], fid)]
+            continue
+        
         # Find all distances from the current facility
-        ###dlist = [pdic[pid] for pid in pdic] # list of all population coords
-        first_ids = list(pdic.keys())[0:2]###
-        dlist = [pdic[i] for i in first_ids]###
+        dlist = [pdic[pid] for pid in pdic] # list of all population coords
         d = travel_time_destination_list(fdic[fid], dlist, mapfile)
         
         # Save distances in dictionary
         pids = list(pdic.keys()) # list of population IDs
-        ###for j in range(len(pdic)):
-        for j in range(2):###
-            fpdist[(pid, fids[j])] = d[j]
-        
-        break###
+        for j in range(len(pdic)):
+            fpdist[(pids[j], fid)] = d[j]
+    
+    ###
+    print(fpdist)
+    print(fpdist.keys())
     
     # Write dictionary contents to distance file
     with open(distfile, 'w') as f:
         f.write(DIST_HEADER)
         for pair in pfdist:
             f.write(str(pair[0]) + "\t" + str(pair[1]) + "\t" +
-                str(pfdist(pair)) + "\t" + str(fpdist(pair)) + "\t\n")
+                str(pfdist[pair]) + "\t" + str(fpdist[pair]) + "\t\n")
 
 #==============================================================================
 # Execution
@@ -380,4 +393,4 @@ def generate_distance_file(popfile, facfile, mapfile, distfile):
 #print(travel_time_destination_list((37.4, -122.0), [(37.2, -121.7), (37.4, -121.7)], os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml")))
 #download_map_box(os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), SANTA_CLARA_N, SANTA_CLARA_S, SANTA_CLARA_E, SANTA_CLARA_W)
 #print(travel_time((37.4, -122.0), (37.2, -121.7), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml")))
-generate_distance_file(os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv"))
+generate_distance_file(os.path.join("..", "processed", "santa_clara", "santa_clara_pop_small.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac_small.tsv"), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv"))
