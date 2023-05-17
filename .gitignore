@@ -8,7 +8,9 @@ data/*/*
 maps/*/*
 processed/*/*
 results/*/*
+scripts/cache/
 !*.md
 !.gitkeep
 email.txt
 token.txt
+*.old
