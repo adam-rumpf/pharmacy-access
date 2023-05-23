@@ -287,6 +287,80 @@ def address_test(fname, tol=0.09469697, outfile=None):
         with open(outfile, 'w') as f:
             f.write(s + "\n")
 
+#------------------------------------------------------------------------------
+
+def county_tract_info(county, cenfile, geocode=9, countycode=14, basename=86,
+                      population=90, lat=92, lon=93, lsadc=94):
+    """Extracts tract-level population info from a Census Redistricting file.
+    
+    Positional arguments:
+        counties (str|list(str)) -- County name or list of county names.
+        cenfile (str) -- Path to a Census Redistricting (PL) file for the state
+            containing the specified counties.
+    
+    Keyword arguments:
+        geocode (int) -- Column number (starting from 0) of the row's FIPS
+            code. Defaults to 9.
+        countycode (int) -- Column number of county-level FIPS code. Defaults
+            to 14.
+        basename (int) -- Column number of the record's name. Defaults to 86.
+        population (int) -- Column number of the record's population number.
+            Defaults to 90.
+        lat (int) -- Column number of the record's latitude. Defaults to 92.
+        lon (int) -- Column number of the record's longitude. Defaults to 93.
+        lsadc (int) -- Column number of the record's Legal/Statistical Area
+            Description Code. Defaults to 94.
+    
+    Returns:
+        (dict) -- Dictionary of tract-level information for all of the
+            specified counties. The dictionary is indexed by the tract's FIPS
+            code, and each entry is a list containing, respectively, the
+            tract's latitude, longitude, and population.
+    
+    This function extracts tract-level population information from a US Census
+    National Redistricting Data Summary File, which is a pipe-delimited table
+    that contains a large amount of data for various levels of statistical
+    region.
+    
+    The keyword arguments indicate the column numbers of the fields to extract,
+    and are based on the 2020 summary file format. The lsadc field is used to
+    determine which rows correspond to counties (code 06) and which correspond
+    to census tracts (code CT).
+    
+    Counties are processed one-by-one. For each county, we begin by finding
+    that county's row by finding a match in the basename field, and then we
+    extract its county FIPS code from the countycode field. We then go through
+    each census tract with a matching county code and extract the information
+    from the lat, lon, and population fields.
+    """
+    
+    # Ensure that we have a list of county names
+    if type(county) is not list:
+        county = [county]
+    
+    ###
+    print("!!!")
+
+#==============================================================================
+# Miscellaneous Preprocessing Scripts
+#==============================================================================
+
+def filter_providers(ziplist, facfile):
+    """Creates a filtered list of vaccine providers for a set of ZIP codes.
+    
+    Positional arguments:
+        ziplist (list(int)) -- List of ZIP codes. Only facilities matching one
+            of these ZIP codes will be included in the output file.
+        facfile (str) -- Facility output file path.
+    """
+    
+    # Define master provider file name
+    master_file = os.path.join("..", "data", "_general",
+                   "Vaccines.gov__COVID-19_vaccinating_provider_locations.csv")
+    
+    ###
+    print("!!!")
+
 #==============================================================================
 # Location-Specific Preprocessing Scripts
 #==============================================================================
@@ -628,4 +702,5 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #process_chicago()
 #process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
-address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
+#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
+county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
