@@ -598,7 +598,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                 continue
             
             s = line.strip().split(',')
-            fips = int(s[0]) # current row's FIPS
+            fips = s[0] # current row's FIPS
             
             # Initialize empty entry for a new FIPS
             if fips not in pdic:
@@ -629,7 +629,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                 continue
             
             s = line.strip().split('\t')
-            fips = int(s[1]) # current row's FIPS
+            fips = s[1] # current row's FIPS
             
             # Skip tracts not logged in the vaccination file
             if fips not in pdic:
@@ -654,7 +654,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             s = line.replace('"', '').strip().split(',')
             
             # Take 11-digit header
-            fips = int(s[3][:11])
+            fips = s[3][:11]
             if fips not in pdic:
                 continue
             
