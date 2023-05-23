@@ -12,7 +12,6 @@ chicago/
     COVID-19_Vaccinations_by_ZIP_Code.csv
     IL_2020_ADI_9 Digit Zip Code_v3.2.csv
 santa_clara/
-    2022_gaz_tracts_06.txt
     CA_2020_ADI_Census_Block_Group_v3.2.csv
     COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv
     Santa_Clara_County_Pharmacies.csv
@@ -40,7 +39,6 @@ Data mostly collected from the [Chicago Data Portal](https://data.cityofchicago.
 
 Data mostly collected from the [County of Santa Clara Open Data Portal](https://data.sccgov.org/) on November 3, 2022.
 
-* [`2022_gaz_tracts_06.txt`](https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html): California gazetteer files from the 2020 census.
 * [`CA_2020_ADI_Census_Block_Group_v3.2.csv`](https://www.neighborhoodatlas.medicine.wisc.edu/): Census tract-level [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) rankings for California, indexed by FIPS.
 * [`COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv`](https://data.sccgov.org/COVID-19/COVID-19-Vaccination-among-County-Residents-by-Cen/qx2e-7jz2): Santa Clara County COVID-19 vaccination rates by census tract.
 * [`Santa_Clara_County_Pharmacies.csv`](https://data.cdc.gov/Vaccinations/Vaccines-gov-COVID-19-vaccinating-provider-locatio/5jp2-pgaw): A data table of Santa Clara County pharmacy information extracted from a the vaccines.gov master list during March-April 2023. Primarily used to generate the facility location file by geocoding street addresses to find geographic coordinates.

@@ -289,8 +289,9 @@ def address_test(fname, tol=0.09469697, outfile=None):
 
 #------------------------------------------------------------------------------
 
-def county_tract_info(county, cenfile, geocode=9, countycode=14, basename=86,
-                      population=90, lat=92, lon=93, lsadc=94):
+def county_tract_info(county, cenfile, append=[], geocode=9, countycode=14,
+                      basename=86, population=90, lat=92, lon=93, lsadc=94,
+                      sumlev=(2,"140")):
     """Extracts tract-level population info from a Census Redistricting file.
     
     Positional arguments:
@@ -299,6 +300,9 @@ def county_tract_info(county, cenfile, geocode=9, countycode=14, basename=86,
             containing the specified counties.
     
     Keyword arguments:
+        append (list) -- List to append to the end of each dictionary entry.
+            Defaults to the empty list. Meant to leave room for adding extra
+            entries later.
         geocode (int) -- Column number (starting from 0) of the row's FIPS
             code. Defaults to 9.
         countycode (int) -- Column number of county-level FIPS code. Defaults
@@ -310,12 +314,16 @@ def county_tract_info(county, cenfile, geocode=9, countycode=14, basename=86,
         lon (int) -- Column number of the record's longitude. Defaults to 93.
         lsadc (int) -- Column number of the record's Legal/Statistical Area
             Description Code. Defaults to 94.
+        sumlev (tuple) -- Tuple indicating the column number of the
+            summary level code (default 2) and the summary level corresponding
+            to a census tract (default 140).
     
     Returns:
         (dict) -- Dictionary of tract-level information for all of the
             specified counties. The dictionary is indexed by the tract's FIPS
             code, and each entry is a list containing, respectively, the
-            tract's latitude, longitude, and population.
+            tract's latitude, longitude, and population (followed by the
+            contents of the "append" argument)
     
     This function extracts tract-level population information from a US Census
     National Redistricting Data Summary File, which is a pipe-delimited table
@@ -363,12 +371,13 @@ def county_tract_info(county, cenfile, geocode=9, countycode=14, basename=86,
         
         # Process each tract that matches the county's FIPS code
         for row in tab:
-            if row[lsadc] != "CT" or row[countycode] != cfips:
+            if (row[lsadc] != "CT" or row[countycode] != cfips or
+                row[sumlev[0]] != sumlev[1]):
                 continue
             
             # Store data in output dictionary
-            pdic[row[geocode]] = [float(row[lat]), float(row[lon]),
-                                  int(row[population])]
+            pdic[row[geocode]] = ([float(row[lat]), float(row[lon]),
+                                   int(row[population])] + append)
     
     # Return the data dictionary
     return pdic
@@ -580,13 +589,12 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
     fac_file = os.path.join("..", "data", "santa_clara",
                             "Santa_Clara_County_Pharmacies.csv")
-    census_file = os.path.join("..", "data", "santa_clara",
-                               "2022_gaz_tracts_06.txt")
+    census_file = os.path.join("..", "data", "ca", "cageo2020.pl")
     vacc_file = os.path.join("..", "data", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
     
-    # Initialize population center dictionary
-    pdic = dict()
+    # Gather population data from census file (leaving room for vacc and adi)
+    pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1])
     
     # Gather vaccination rates
     with open(vacc_file, 'r') as f:
@@ -599,10 +607,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             
             s = line.strip().split(',')
             fips = s[0] # current row's FIPS
-            
-            # Initialize empty entry for a new FIPS
             if fips not in pdic:
-                pdic[fips] = [0 for i in range(5)]
+                continue
             
             # Gather population and vaccinations
             try:
@@ -618,26 +624,6 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             except ValueError:
                 pdic[fips][2] = 0
                 pdic[fips][3] = 0.0
-    
-    # Gather tract locations
-    with open(census_file, 'r') as f:
-        
-        for line in f:
-            
-            # Skip comment line
-            if line.strip()[-1].isdigit() == False:
-                continue
-            
-            s = line.strip().split('\t')
-            fips = s[1] # current row's FIPS
-            
-            # Skip tracts not logged in the vaccination file
-            if fips not in pdic:
-                continue
-            
-            # Gather coordinates
-            pdic[fips][0] = float(s[6])
-            pdic[fips][1] = float(s[7])
     
     # Gather ADI rankings
     with open(adi_file, 'r') as f:
