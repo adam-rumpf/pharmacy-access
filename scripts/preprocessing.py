@@ -332,14 +332,46 @@ def county_tract_info(county, cenfile, geocode=9, countycode=14, basename=86,
     extract its county FIPS code from the countycode field. We then go through
     each census tract with a matching county code and extract the information
     from the lat, lon, and population fields.
+    
+    County names that are not found in the census file are skipped.
     """
     
     # Ensure that we have a list of county names
     if type(county) is not list:
         county = [county]
     
-    ###
-    print("!!!")
+    # Initialize output dictionary
+    pdic = dict()
+    
+    # Read census file into a table
+    with open(cenfile, 'r') as f:
+        tab = [line.strip().split('|') for line in f]
+    
+    # Process each county one-at-a-time
+    for c in county:
+        
+        # Find the county's FIPS code
+        cfips = ""
+        for row in tab:
+            if row[lsadc] == "06" and row[basename] == c:
+                cfips = row[countycode]
+                break
+        
+        # Skip the county if no code was found
+        if cfips == "":
+            continue
+        
+        # Process each tract that matches the county's FIPS code
+        for row in tab:
+            if row[lsadc] != "CT" or row[countycode] != cfips:
+                continue
+            
+            # Store data in output dictionary
+            pdic[row[geocode]] = [float(row[lat]), float(row[lon]),
+                                  int(row[population])]
+    
+    # Return the data dictionary
+    return pdic
 
 #==============================================================================
 # Miscellaneous Preprocessing Scripts
@@ -547,7 +579,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     adi_file = os.path.join("..", "data", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
     fac_file = os.path.join("..", "data", "santa_clara",
-                            "Santa_Clara_County_Pharmacy_Locations.csv")
+                            "Santa_Clara_County_Pharmacies.csv")
     census_file = os.path.join("..", "data", "santa_clara",
                                "2022_gaz_tracts_06.txt")
     vacc_file = os.path.join("..", "data", "santa_clara",
@@ -703,4 +735,5 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
-county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
+#county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
+process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
