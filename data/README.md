@@ -10,6 +10,7 @@ santa_clara/
     CA_2020_ADI_Census_Block_Group_v3.2.csv
     COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv
     Santa_Clara_County_Pharmacies.csv
+    Santa_Clara_County_Neighbor_Pharmacies.csv
     santa_clara_zips.ini
 ```
 The files for each location, along with their sources, are explained below.
@@ -29,4 +30,5 @@ Data mostly collected from the [County of Santa Clara Open Data Portal](https://
 * [`CA_2020_ADI_Census_Block_Group_v3.2.csv`](https://www.neighborhoodatlas.medicine.wisc.edu/): Census tract-level [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) rankings for California, indexed by FIPS.
 * [`COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv`](https://data.sccgov.org/COVID-19/COVID-19-Vaccination-among-County-Residents-by-Cen/qx2e-7jz2): Santa Clara County COVID-19 vaccination rates by census tract.
 * [`Santa_Clara_County_Pharmacies.csv`](https://data.cdc.gov/Vaccinations/Vaccines-gov-COVID-19-vaccinating-provider-locatio/5jp2-pgaw): A data table of Santa Clara County pharmacy information extracted from a the vaccines.gov master list during March-April 2023. Primarily used to generate the facility location file by geocoding street addresses to find geographic coordinates.
+* `Santa_Clara_County_Neighbor_Pharmacies.csv`: Same as `Santa_Clara_County_Pharmacies.csv`, but includes all pharmacies for all counties that neighbor Santa Clara County.
 * `santa_clara_zips.ini`: A custom-made INI file containing all ZIP codes in Santa Clara County and its neighboring counties, divided into county-specific sections.

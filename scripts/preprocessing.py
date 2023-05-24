@@ -32,6 +32,11 @@ POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\t\n"
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 
+# Counties neighboring Santa Clara
+SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
+                         "San Francisco", "San Joaquin", "San Mateo",
+                         "Santa Cruz", "Stanislaus"]
+
 #==============================================================================
 # Common Functions
 #==============================================================================
@@ -203,12 +208,12 @@ def address_test(fname, tol=0.09469697, outfile=None):
     # Define standard location file field names
     latfield = "latitude"
     lonfield = "longitude"
-    namefield = "loc_name"
-    a1field = "loc_admin_street1"
-    a2field = "loc_admin_street2"
-    cityfield = "loc_admin_city"
-    statefield = "loc_admin_state"
-    zipfield = "loc_admin_zip"
+    namefield = "pharmacy name"
+    a1field = "address line 1"
+    a2field = "address line 2"
+    cityfield = "city"
+    statefield = "state"
+    zipfield = "zipcode"
     
     # Initialize report string
     s = ("Testing file: '" + 
@@ -244,7 +249,7 @@ def address_test(fname, tol=0.09469697, outfile=None):
             except ValueError:
                 # Report missing coordinates
                 missing += 1
-                s += "\n\nRow " + str(i+1) + "\nMissing coordinates"
+                s += "\n\nRow " + str(i+2) + "\nMissing coordinates"
                 
                 # Log address and continue
                 a1 = (dic[i][namefield] + ", " + dic[i][a1field] + ", " +
@@ -268,7 +273,7 @@ def address_test(fname, tol=0.09469697, outfile=None):
             if dist <= tol:
                 
                 dupes += 1
-                s += ("\n\nRows " + str(i+1) + " and " + str(j+1) +
+                s += ("\n\nRows " + str(i+2) + " and " + str(j+2) +
                     "\nCoordinates closer than " +
                     f"{dist:f} mi ({5280*dist:.2f} ft)")
                 
@@ -428,7 +433,8 @@ def _pharmacy_type(name):
     
     if "Costco".lower() in name.lower():
         return "Costco"
-    elif "CVS".lower() in name.lower():
+    elif (("CVS".lower() in name.lower()) or
+          ("MinuteClinic".lower() in name.lower())):
         return "CVS"
     elif "Kroger".lower() in name.lower():
         return "Kroger"
@@ -436,8 +442,6 @@ def _pharmacy_type(name):
         return "Publix"
     elif "Rite Aid".lower() in name.lower():
         return "Rite Aid"
-    elif "MinuteClinic".lower() in name.lower():
-        return "MinuteClinic"
     elif "Sam's Club".lower() in name.lower():
         return "Sam's Club"
     elif "Safeway".lower() in name.lower():
@@ -552,9 +556,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
     
     # Define location-specific parameters
-    neighbors = ["Alameda", "Merced", "Monterey", "San Benito",
-                 "San Francisco", "San Joaquin", "San Mateo", "Santa Cruz",
-                 "Stanislaus"]
+    neighbors = SANTA_CLARA_NEIGHBORS
     
     # Gather population data from census file (leaving room for vacc and adi)
     pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1])
@@ -714,5 +716,10 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
 #process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
 
-zips = ini_section_keys(os.path.join("..", "data", "santa_clara", "santa_clara_zips.ini"), "santa_clara")
-filter_providers(zips, os.path.join("..", "data", "santa_clara", "Santa_Clara_Pharmacies_Test.csv"))
+#zips = ini_section_keys(os.path.join("..", "data", "santa_clara", "santa_clara_zips.ini"), "santa_clara")
+#filter_providers(zips, os.path.join("..", "data", "santa_clara", "Santa_Clara_Pharmacies_Test.csv"))
+#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_Pharmacies_Test.csv"), outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_Pharmacies_Test_Report.txt"))
+
+#zips = ini_section_keys(os.path.join("..", "data", "santa_clara", "santa_clara_zips.ini"), [s.lower().replace(' ','_') for s in SANTA_CLARA_NEIGHBORS])
+#filter_providers(zips, os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"))
+#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
