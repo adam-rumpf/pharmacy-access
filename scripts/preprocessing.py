@@ -416,6 +416,39 @@ def ini_section_keys(inifile, section):
 
 #------------------------------------------------------------------------------
 
+def _pharmacy_type(name):
+    """Attempts to classify the type of pharmacy from its name.
+    
+    Positional arguments:
+        name (str) -- Name of the pharmacy.
+    
+    Returns:
+        (str) -- Type of the pharmacy, or empty string if unclassified.
+    """
+    
+    if "Costco".lower() in name.lower():
+        return "Costco"
+    elif "CVS".lower() in name.lower():
+        return "CVS"
+    elif "Kroger".lower() in name.lower():
+        return "Kroger"
+    elif "Publix".lower() in name.lower():
+        return "Publix"
+    elif "Rite Aid".lower() in name.lower():
+        return "Rite Aid"
+    elif "MinuteClinic".lower() in name.lower():
+        return "MinuteClinic"
+    elif "Sam's Club".lower() in name.lower():
+        return "Sam's Club"
+    elif "Safeway".lower() in name.lower():
+        return "Safeway"
+    elif "Walgreens".lower() in name.lower():
+        return "Walgreens"
+    else:
+        return ""
+
+#------------------------------------------------------------------------------
+
 def filter_providers(ziplist, filterfile):
     """Creates a filtered list of vaccine providers for a set of ZIP codes.
     
@@ -432,12 +465,57 @@ def filter_providers(ziplist, filterfile):
     script is for.
     """
     
-    # Define master provider file name
+    # Define master provider file name and field indices
     master_file = os.path.join("..", "data", "_general",
                    "Vaccines.gov__COVID-19_vaccinating_provider_locations.csv")
     
-    ###
-    print("!!!")
+    # Read contents of master CSV file
+    with open(master_file, 'r') as f:
+        reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Write output CSV file
+    with open(filterfile, 'w', newline='') as f:
+        
+        # Define field names
+        fields = ["pharmacy name", "pharmacy type", "address line 1",
+                  "address line 2", "city", "state", "zipcode", "min age",
+                  "latitude", "longitude"]
+        
+        # Initialize CSV parser
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        
+        # Initialize name list
+        names = []
+        
+        # Process each row of master file
+        for row in tqdm.tqdm(reader):
+            
+            # Skip rows that don't match the ZIP code list
+            if row["loc_admin_zip"] not in ziplist:
+                continue
+            
+            # Skip rows whose names match a previously-logged name
+            if row["loc_name"] in names:
+                continue
+            
+            # Record the new pharmacy name
+            names.append(row["loc_name"])
+            
+            # Attempt to classify the location type
+            type = _pharmacy_type(row["loc_name"])
+            
+            # Write the new row to the output file
+            writer.writerow({"pharmacy name": row["loc_name"],
+                             "pharmacy type": type,
+                             "address line 1": row["loc_admin_street1"],
+                             "address line 2": row["loc_admin_street2"],
+                             "city": row["loc_admin_city"],
+                             "state": row["loc_admin_state"],
+                             "zipcode": row["loc_admin_zip"],
+                             "min age": row["min_age_years"],
+                             "latitude": row["latitude"],
+                             "longitude": row["longitude"]})
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -635,3 +713,6 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
 #process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
+
+zips = ini_section_keys(os.path.join("..", "data", "santa_clara", "santa_clara_zips.ini"), "santa_clara")
+filter_providers(zips, os.path.join("..", "data", "santa_clara", "Santa_Clara_Pharmacies_Test.csv"))
