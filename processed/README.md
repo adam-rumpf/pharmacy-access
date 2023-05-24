@@ -15,7 +15,7 @@ The format of each type of file is explained below.
 
 A population file is generated for each location, summarizing population center-specific data in a standardized format. Each population file is a TSV file with the following columns:
 
-* `id`: Index of the population center within this location. All population centers are given ascending integer indices starting with 0.
+* `id`: Index of the population center within this location. All population centers within a directory are given ascending integer indices starting with 0.
 * `name`: A unique identifier given to this population center within its source file (e.g. FIPS code).
 * `lat`: Latitude of centroid.
 * `lon`: Longitude of centroid.
@@ -23,13 +23,13 @@ A population file is generated for each location, summarizing population center-
 * `vacc`: Vaccination rate (between 0.0 and 1.0), as of the most recent data (-1 for missing data).
 * `adi`: 2022 [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) ranking (-1 for missing data).
 
-Each location also has a population file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off.
+Each location also has a population file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off, and they do not include `vacc` or `adi` fields.
 
 ## Facility File Format
 
 A facility file is generated for each location, summarizing vaccination facility-specific data in a standardized format. Each facility file is a TSV file with the following columns:
 
-* `id`: Index of the facilities center within this location. All facilities are given ascending integer indices starting with 0.
+* `id`: Index of the facilities center within this location. All facilities within a directory are given ascending integer indices starting with 0.
 * `name`: An identifying string based on its source file (address, coordinates, etc.).
 * `lat`: Latitude of facility.
 * `lon`: Longitude of facility.
