@@ -408,15 +408,23 @@ def filter_providers(ziplist, facfile):
 
 def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                                              "santa_clara_pop.tsv"),
+                        nbrpopfile=os.path.join("..", "processed", "santa_clara",
+                                                "santa_clara_pop_nbr.tsv"),
                         facfile=os.path.join("..", "processed", "santa_clara",
-                                             "santa_clara_fac.tsv")):
+                                             "santa_clara_fac.tsv"),
+                        nbrfacfile=os.path.join("..", "processed", "santa_clara",
+                                                "santa_clara_fac_nbr.tsv")):
     """Preprocessing scripts for the Santa Clara data.
     
-    Optional keyword arguments:
+    Keyword arguments:
         popfile (str) -- Population output file path. Defaults to a file in the
             processed/ directory named "santa_clara_pop.tsv".
+        nbrpopfile (str) -- Population neighbor output file path. Defaults to a
+            file in the processed/ directory named "santa_clara_pop_nbr.tsv".
         facfile (str) -- Facility output file path. Defaults to a file in the
             processed/ directory named "santa_clara_fac.tsv".
+        nbrfacfile (str) -- Facility neighbor output file path. Defaults to a
+            file in the processed/ directory named "santa_clara_fac_nbr.tsv".
     """
     
     # Define location-specific file names
