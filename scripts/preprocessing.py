@@ -9,6 +9,7 @@ differently, a different function has been defined to perform the preprocessing
 for each location.
 """
 
+import configparser
 import csv
 import os.path
 import re
@@ -25,8 +26,16 @@ import tqdm
 # Population center file header (including column labels)
 POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\t\n"
 
+# Shorter population center file header (for neighbor files)
+POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\t\n"
+
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
+
+# Counties neighboring Santa Clara
+SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
+                         "San Francisco", "San Joaquin", "San Mateo",
+                         "Santa Cruz", "Stanislaus"]
 
 #==============================================================================
 # Common Functions
@@ -199,12 +208,12 @@ def address_test(fname, tol=0.09469697, outfile=None):
     # Define standard location file field names
     latfield = "latitude"
     lonfield = "longitude"
-    namefield = "loc_name"
-    a1field = "loc_admin_street1"
-    a2field = "loc_admin_street2"
-    cityfield = "loc_admin_city"
-    statefield = "loc_admin_state"
-    zipfield = "loc_admin_zip"
+    namefield = "pharmacy name"
+    a1field = "address line 1"
+    a2field = "address line 2"
+    cityfield = "city"
+    statefield = "state"
+    zipfield = "zipcode"
     
     # Initialize report string
     s = ("Testing file: '" + 
@@ -240,7 +249,7 @@ def address_test(fname, tol=0.09469697, outfile=None):
             except ValueError:
                 # Report missing coordinates
                 missing += 1
-                s += "\n\nRow " + str(i+1) + "\nMissing coordinates"
+                s += "\n\nRow " + str(i+2) + "\nMissing coordinates"
                 
                 # Log address and continue
                 a1 = (dic[i][namefield] + ", " + dic[i][a1field] + ", " +
@@ -264,7 +273,7 @@ def address_test(fname, tol=0.09469697, outfile=None):
             if dist <= tol:
                 
                 dupes += 1
-                s += ("\n\nRows " + str(i+1) + " and " + str(j+1) +
+                s += ("\n\nRows " + str(i+2) + " and " + str(j+2) +
                     "\nCoordinates closer than " +
                     f"{dist:f} mi ({5280*dist:.2f} ft)")
                 
@@ -382,25 +391,224 @@ def county_tract_info(county, cenfile, append=[], geocode=9, countycode=14,
     # Return the data dictionary
     return pdic
 
-#==============================================================================
-# Miscellaneous Preprocessing Scripts
-#==============================================================================
+#------------------------------------------------------------------------------
 
-def filter_providers(ziplist, facfile):
+def ini_section_keys(inifile, section):
+    """Reads all keys from a given INI section.
+    
+    Positional arguments:
+        inifile (str) -- INI file path.
+        section (str|list(str)) -- Section or list of sections.
+    
+    Returns:
+        (list) -- List of all keys in the given INI section(s).
+    """
+    
+    # Convert singleton section into a list
+    if type(section) != list:
+        section = [section]
+    
+    # Initialize config file parser
+    parser = configparser.ConfigParser(allow_no_value=True)
+    parser.read(inifile)
+    
+    # Gather keys from all sections
+    keylist = []
+    for s in section:
+        keylist.extend([k for k in parser[s]])
+    
+    return keylist
+
+#------------------------------------------------------------------------------
+
+def _pharmacy_type(name):
+    """Attempts to classify the type of pharmacy from its name.
+    
+    Positional arguments:
+        name (str) -- Name of the pharmacy.
+    
+    Returns:
+        (str) -- Type of the pharmacy, or empty string if unclassified.
+    """
+    
+    if "Costco".lower() in name.lower():
+        return "Costco"
+    elif (("CVS".lower() in name.lower()) or
+          ("MinuteClinic".lower() in name.lower())):
+        return "CVS"
+    elif "Kroger".lower() in name.lower():
+        return "Kroger"
+    elif "Publix".lower() in name.lower():
+        return "Publix"
+    elif "Rite Aid".lower() in name.lower():
+        return "Rite Aid"
+    elif "Sam's Club".lower() in name.lower():
+        return "Sam's Club"
+    elif "Safeway".lower() in name.lower():
+        return "Safeway"
+    elif "Walgreens".lower() in name.lower():
+        return "Walgreens"
+    else:
+        return ""
+
+#------------------------------------------------------------------------------
+
+def filter_providers(ziplist, filterfile):
     """Creates a filtered list of vaccine providers for a set of ZIP codes.
     
     Positional arguments:
         ziplist (list(int)) -- List of ZIP codes. Only facilities matching one
             of these ZIP codes will be included in the output file.
-        facfile (str) -- Facility output file path.
+        filterfile (str) -- File path for the filtered copy of the vaccine
+            provider file.
+    
+    This script is made for processing the vaccines.gov master provider list to
+    produce filtered lists of providers within a given location. Keep in mind
+    that the output file may still require hand-processing due to the
+    possibility of duplicate entries, which is what the above address_test()
+    script is for.
     """
     
-    # Define master provider file name
+    # Define master provider file name and field indices
     master_file = os.path.join("..", "data", "_general",
                    "Vaccines.gov__COVID-19_vaccinating_provider_locations.csv")
     
-    ###
-    print("!!!")
+    # Read contents of master CSV file
+    with open(master_file, 'r') as f:
+        reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Write output CSV file
+    with open(filterfile, 'w', newline='') as f:
+        
+        # Define field names
+        fields = ["pharmacy name", "pharmacy type", "address line 1",
+                  "address line 2", "city", "state", "zipcode", "min age",
+                  "latitude", "longitude"]
+        
+        # Initialize CSV parser
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        
+        # Initialize name list
+        names = []
+        
+        # Process each row of master file
+        for row in tqdm.tqdm(reader):
+            
+            # Skip rows that don't match the ZIP code list
+            if row["loc_admin_zip"][:5] not in ziplist:
+                continue
+            
+            # Skip rows whose names match a previously-logged name
+            if row["loc_name"] in names:
+                continue
+            
+            # Record the new pharmacy name
+            names.append(row["loc_name"])
+            
+            # Attempt to classify the location type
+            type = _pharmacy_type(row["loc_name"])
+            
+            # Write the new row to the output file
+            writer.writerow({"pharmacy name": row["loc_name"],
+                             "pharmacy type": type,
+                             "address line 1": row["loc_admin_street1"],
+                             "address line 2": row["loc_admin_street2"],
+                             "city": row["loc_admin_city"],
+                             "state": row["loc_admin_state"],
+                             "zipcode": row["loc_admin_zip"][:5],
+                             "min age": row["min_age_years"],
+                             "latitude": row["latitude"],
+                             "longitude": row["longitude"]})
+
+#------------------------------------------------------------------------------
+
+def pharmacy_to_facility(pharmfile, facfile, offset=0):
+    """Converts a pharmacy data file into a standardized facility file.
+    
+    Positional arguments:
+        pharmfile (str) -- Path to pharmacy data file (the type output by the
+            provider filtration script above).
+        facfile (str) -- Path to the output facility file.
+    
+    Keyword arguments:
+        offset (int) -- Offset for the first row's index. Defaults to 0. It may
+            be desirable to set it to a different number if generating several
+            facility files in sequence.
+    
+    Returns:
+        (int) -- The index of the last row.
+    
+    The input and output files are both expected to follow a specific format.
+    In particular the input pharmacy file is meant to be a .tsv following the
+    format produced by the facility filtration script above, with the following
+    fields (in order, with these names):
+        pharmacy name
+        pharmacy type
+        address line 1
+        address line 2
+        city
+        state
+        zipcode
+        min age
+        latitude
+        longitude
+    
+    The output facility file (for use in the metric generation scripts) is a
+    simplified version including the following fields (in order, with these
+    names):
+        id (unique integer index)
+        name (full name from the "pharmacy name" field)
+        lat (latitude)
+        lon (longitude)
+        cap (capacity)
+    """
+    
+    # Initialize facility dictionary
+    fdic = dict()
+    
+    # Gather vaccination facility locations
+    with open(pharmfile, 'r') as f:
+        
+        # Create a list of dictionaries for each row
+        dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+        
+        # Look up the address on each row
+        for row in dic:
+            
+            # Get facility name (removing tabs if needed)
+            fi = row["pharmacy name"].replace('\t', '')
+            
+            # Initialize empty entry for a new facility
+            fdic[fi] = [0 for i in range(3)]
+            
+            # Try to get coordinates
+            try:
+                fdic[fi][0] = row["latitude"]
+                fdic[fi][1] = row["longitude"]
+            except KeyError:
+                fdic[fi][0] = None
+                fdic[fi][1] = None
+            
+            # Get capacity
+            ### Find a way to measure capacity.
+            fdic[fi][2] = 1
+    
+    # Write facility output file
+    index = offset
+    with open(facfile, 'w') as f:
+        f.write(FAC_HEADER)
+        sk = sorted(fdic.keys())
+        for i in range(len(sk)):
+            line = str(index) + '\t' + str(sk[i]) + '\t'
+            for item in fdic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
+            index += 1
+    
+    del fdic
+    
+    return index
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -408,15 +616,23 @@ def filter_providers(ziplist, facfile):
 
 def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                                              "santa_clara_pop.tsv"),
+                        nbrpopfile=os.path.join("..", "processed", "santa_clara",
+                                                "santa_clara_pop_nbr.tsv"),
                         facfile=os.path.join("..", "processed", "santa_clara",
-                                             "santa_clara_fac.tsv")):
+                                             "santa_clara_fac.tsv"),
+                        nbrfacfile=os.path.join("..", "processed", "santa_clara",
+                                                "santa_clara_fac_nbr.tsv")):
     """Preprocessing scripts for the Santa Clara data.
     
-    Optional keyword arguments:
+    Keyword arguments:
         popfile (str) -- Population output file path. Defaults to a file in the
             processed/ directory named "santa_clara_pop.tsv".
+        nbrpopfile (str) -- Population neighbor output file path. Defaults to a
+            file in the processed/ directory named "santa_clara_pop_nbr.tsv".
         facfile (str) -- Facility output file path. Defaults to a file in the
             processed/ directory named "santa_clara_fac.tsv".
+        nbrfacfile (str) -- Facility neighbor output file path. Defaults to a
+            file in the processed/ directory named "santa_clara_fac_nbr.tsv".
     """
     
     # Define location-specific file names
@@ -424,9 +640,14 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
     fac_file = os.path.join("..", "data", "santa_clara",
                             "Santa_Clara_County_Pharmacies.csv")
+    fac_nbr_file = os.path.join("..", "data", "santa_clara",
+                                "Santa_Clara_County_Neighbor_Pharmacies.csv")
     census_file = os.path.join("..", "data", "ca", "cageo2020.pl")
     vacc_file = os.path.join("..", "data", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
+    
+    # Define location-specific parameters
+    neighbors = SANTA_CLARA_NEIGHBORS
     
     # Gather population data from census file (leaving room for vacc and adi)
     pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1])
@@ -506,54 +727,51 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             f.write(line + '\n')
             index += 1
     
-    # Initialize facility dictionary
-    fdic = dict()
+    # Gather neighboring county data
+    pndic = county_tract_info(neighbors, census_file)
     
-    # Gather vaccination facility locations
-    with open(fac_file, 'r') as f:
-        
-        # Create a list of dictionaries for each row
-        dic = list(csv.DictReader(f, delimiter=',', quotechar='"'))
-        namekey = list(dic[0].keys())[4] # fourth key should be pharmacy name
-        
-        # Look up the address on each row
-        for row in dic:
-            
-            # Get facility name
-            fi = row[namekey]
-            
-            # Initialize empty entry for a new facility
-            fdic[fi] = [0 for i in range(3)]
-            
-            # Try to get coordinates
-            try:
-                fdic[fi][0] = row["latitude"]
-                fdic[fi][1] = row["longitude"]
-            except KeyError:
-                fdic[fi][0] = None
-                fdic[fi][1] = None
-            
-            # Get capacity
-            ### Find a way to measure capacity.
-            fdic[fi][2] = 1
+    # Delete duplicates
+    for fips in pdic:
+        if fips in pndic:
+            del pndic[fips]
     
-    # Write facility output file
-    with open(facfile, 'w') as f:
-        f.write(FAC_HEADER)
-        sk = sorted(fdic.keys())
+    # Write population neighbor output file
+    with open(nbrpopfile, 'w') as f:
+        f.write(POP_HEADER_SHORT)
+        sk = sorted(pndic.keys())
+        # "index" carries over from the main population file
         for i in range(len(sk)):
-            line = str(i) + '\t' + str(sk[i]) + '\t'
-            for item in fdic[sk[i]]:
+            # Skip lines with no coordinates
+            if pndic[sk[i]][0] == 0 or pndic[sk[i]][1] == 0:
+                continue
+            line = str(index) + '\t' + str(sk[i]) + '\t'
+            for item in pndic[sk[i]]:
                 line += str(item) + '\t'
             f.write(line + '\n')
+            index += 1
+    
+    del pdic
+    del pndic
+    
+    # Generate facility file
+    index = pharmacy_to_facility(fac_file, facfile)
+    
+    # Generate facility neighbor file
+    pharmacy_to_facility(fac_nbr_file, nbrfacfile, offset=index+1)
 
 #==============================================================================
 # Execution
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-#process_santa_clara(facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_2.tsv"))
-#pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
-#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
+
+#zips = ini_section_keys(os.path.join("..", "data", "santa_clara", "santa_clara_zips.ini"), "santa_clara")
+#filter_providers(zips, os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
+#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
+
+#zips = ini_section_keys(os.path.join("..", "data", "santa_clara", "santa_clara_zips.ini"), [s.lower().replace(' ','_') for s in SANTA_CLARA_NEIGHBORS])
+#filter_providers(zips, os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"))
+#address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
+
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
+#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
