@@ -9,6 +9,7 @@ differently, a different function has been defined to perform the preprocessing
 for each location.
 """
 
+import configparser
 import csv
 import os.path
 import re
@@ -385,17 +386,50 @@ def county_tract_info(county, cenfile, append=[], geocode=9, countycode=14,
     # Return the data dictionary
     return pdic
 
-#==============================================================================
-# Miscellaneous Preprocessing Scripts
-#==============================================================================
+#------------------------------------------------------------------------------
 
-def filter_providers(ziplist, facfile):
+def ini_section_keys(inifile, section):
+    """Reads all keys from a given INI section.
+    
+    Positional arguments:
+        inifile (str) -- INI file path.
+        section (str|list(str)) -- Section or list of sections.
+    
+    Returns:
+        (list) -- List of all keys in the given INI section(s).
+    """
+    
+    # Convert singleton section into a list
+    if type(section) != list:
+        section = [section]
+    
+    # Initialize config file parser
+    parser = configparser.ConfigParser(allow_no_value=True)
+    parser.read(inifile)
+    
+    # Gather keys from all sections
+    keylist = []
+    for s in section:
+        keylist.extend([k for k in parser[s]])
+    
+    return keylist
+
+#------------------------------------------------------------------------------
+
+def filter_providers(ziplist, filterfile):
     """Creates a filtered list of vaccine providers for a set of ZIP codes.
     
     Positional arguments:
         ziplist (list(int)) -- List of ZIP codes. Only facilities matching one
             of these ZIP codes will be included in the output file.
-        facfile (str) -- Facility output file path.
+        filterfile (str) -- File path for the filtered copy of the vaccine
+            provider file.
+    
+    This script is made for processing the vaccines.gov master provider list to
+    produce filtered lists of providers within a given location. Keep in mind
+    that the output file may still require hand-processing due to the
+    possibility of duplicate entries, which is what the above address_test()
+    script is for.
     """
     
     # Define master provider file name
@@ -600,4 +634,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #pharmacy_table_coords(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies.csv"))
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacy_Locations.csv"), tol=0.09469697, outfile=os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Pharmacies_Report.txt"))
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
+#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
