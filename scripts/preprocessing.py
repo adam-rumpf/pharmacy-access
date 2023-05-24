@@ -25,6 +25,9 @@ import tqdm
 # Population center file header (including column labels)
 POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\t\n"
 
+# Shorter population center file header (for neighbor files)
+POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\t\n"
+
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 
@@ -436,6 +439,11 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     vacc_file = os.path.join("..", "data", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
     
+    # Define location-specific parameters
+    neighbors = ["Alameda", "Merced", "Monterey", "San Benito",
+                 "San Francisco", "San Joaquin", "San Mateo", "Santa Cruz",
+                 "Stanislaus"]
+    
     # Gather population data from census file (leaving room for vacc and adi)
     pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1])
     
@@ -514,6 +522,32 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             f.write(line + '\n')
             index += 1
     
+    # Gather neighboring county data
+    pndic = county_tract_info(neighbors, census_file)
+    
+    # Delete duplicates
+    for fips in pdic:
+        if fips in pndic:
+            del pndic[fips]
+    
+    # Write population neighbor output file
+    with open(nbrpopfile, 'w') as f:
+        f.write(POP_HEADER_SHORT)
+        sk = sorted(pndic.keys())
+        # "index" carries over from the main population file
+        for i in range(len(sk)):
+            # Skip lines with no coordinates
+            if pndic[sk[i]][0] == 0 or pndic[sk[i]][1] == 0:
+                continue
+            line = str(index) + '\t' + str(sk[i]) + '\t'
+            for item in pndic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
+            index += 1
+    
+    del pdic
+    del pndic
+    
     # Initialize facility dictionary
     fdic = dict()
     
@@ -554,6 +588,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             for item in fdic[sk[i]]:
                 line += str(item) + '\t'
             f.write(line + '\n')
+    
+    del fdic
 
 #==============================================================================
 # Execution
