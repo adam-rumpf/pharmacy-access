@@ -47,7 +47,7 @@ def _read_popfile(popfile):
     Positional arguments:
         popfile (str) -- Preprocessed population file path, which should
             include the coordinates and population of each population
-            cetner.
+            center.
     
     Returns:
         pop (dict(int)) -- Dictionary of population counts.
@@ -162,7 +162,8 @@ def _augment_file(outfile, infile, column, label, default="-1"):
 #==============================================================================
 
 def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
-                   beta=1.0, crowding=True, floor=0.0):
+                   popnbrfile=None, facnbrfile=None, beta=1.0, crowding=True,
+                   floor=0.0):
     """Computes a table of gravitational metrics for a given community.
     
     Positional arguments:
@@ -178,6 +179,10 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
             the travel times between each population center/facility pair.
             Defaults to None, in which case geodesic distances are computed and
             used as needed.
+        popnbrfile (str) -- Preprocessed neighboring county population file
+            path. Defaults to None.
+        facnbrfile (str) -- Preprocessed neighboring county facility file path.
+            Defaults to None.
         beta (float) -- Gravitational decay parameter. Defaults to 1.0.
         crowding (bool) -- Whether or not to take crowding into consideration.
             Defaults to True.
@@ -215,6 +220,11 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     resulting in accessibility metrics that represent distance-weighted counts
     of facility capacities.
     
+    Optionally, population centers and vaccination facilities in neighboring
+    counties can be provided, in which case both will be used in computing
+    crowding and accessibility metrics. This can be used to combat edge
+    effects.
+    
     The output files are augmented versions of the input files, with a new
     column of crowdedness or accessibility metrics appended to the original
     tables.
@@ -223,11 +233,14 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     # Call an appropriate subroutine depending on distance specification
     if distfile == None:
         (fmet, pmet) = _gravity_metric_geodesic(popfile, facfile, beta=beta,
+                                                popnbrfile=popnbrfile,
+                                                facnbrfile=facnbrfile,
                                                 crowding=crowding, floor=floor)
     else:
         (fmet, pmet) = _gravity_metric_file(popfile, facfile, distfile,
-                                            beta=beta, crowding=crowding,
-                                            floor=floor)
+                                            beta=beta, popnbrfile=popnbrfile,
+                                            facnbrfile=facnbrfile,
+                                            crowding=crowding, floor=floor)
     
     # Write facility output file with a new crowdedness metric column
     print("Writing facility metric file.")
@@ -239,8 +252,9 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
 
 #------------------------------------------------------------------------------
 
-def _gravity_metric_geodesic(popfile, facfile, beta=1.0, crowding=True,
-                             floor=0.0, speed=45.0):
+def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
+                             facnbrfile=None, crowding=True, floor=0.0,
+                             speed=45.0):
     """The geodesic distance version of gravity_metric.
     
     This script computes gravity metrics using geodesic distances computed as-
@@ -290,8 +304,8 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, crowding=True,
 
 #------------------------------------------------------------------------------
 
-def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, crowding=True,
-                         floor=0.0):
+def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
+                         facnbrfile=None, crowding=True, floor=0.0):
     """The distance file version of gravity_metric.
     
     This script computes gravity metrics using a predefined distance file. It
@@ -310,7 +324,7 @@ def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, crowding=True,
 #==============================================================================
 
 def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
-               cutoff=30.0, crowding=True):
+               cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True):
     """Computes a table of 2SFCA metrics for a given community.
     
     Positional arguments:
@@ -328,6 +342,10 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
             used as needed.
         cutoff (float) -- Travel time cutoff for defining catchment areas (in
             minutes). Defaults to 30.0.
+        popnbrfile (str) -- Preprocessed neighboring county population file
+            path. Defaults to None.
+        facnbrfile (str) -- Preprocessed neighboring county facility file path.
+            Defaults to None.
         crowding (bool) -- Whether or not to take crowding into consideration.
             Defaults to True.
     
@@ -359,6 +377,11 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     facilities, resulting in accessibility metrics that represent counts of
     facility capacities.
     
+    Optionally, population centers and vaccination facilities in neighboring
+    counties can be provided, in which case both will be used in computing
+    crowding and accessibility metrics. This can be used to combat edge
+    effects.
+    
     The output files are augmented versions of the input files, with a new
     column of crowdedness or accessibility metrics appended to the original
     tables.
@@ -367,10 +390,14 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     # Call an appropriate subroutine depending on distance specification
     if distfile == None:
         (fmet, pmet) = _fca_metric_geodesic(popfile, facfile, cutoff=cutoff,
+                                            popnbrfile=popnbrfile,
+                                            facnbrfile=facnbrfile,
                                             crowding=crowding)
     else:
         (fmet, pmet) = _fca_metric_file(popfile, facfile, distfile,
-                                        cutoff=cutoff, crowding=crowding)
+                                        cutoff=cutoff, popnbrfile=popnbrfile,
+                                        facnbrfile=facnbrfile,
+                                        crowding=crowding)
     
     # Write facility output file with a new crowdedness metric column
     print("Writing facility metric file.")
@@ -382,8 +409,8 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
 
 #------------------------------------------------------------------------------
 
-def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, crowding=True,
-                         speed=45.0):
+def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
+                         facnbrfile=None, crowding=True, speed=45.0):
     """The geodesic distance version of fca_metric.
     
     This script computes 2SFCA metrics using geodesic distances computed as-
@@ -439,7 +466,8 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, crowding=True,
 
 #------------------------------------------------------------------------------
 
-def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, crowding=True):
+def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
+                     facnbrfile=None, crowding=True):
     """The distance file version of gravity_metric.
     
     This script computes gravity metrics using a predefined distance file. It
@@ -468,3 +496,15 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, crowding=True):
 #    fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_" + co[cutoff] + ".tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_" + co[cutoff] + ".tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=cutoff)
 #for cutoff in co:
 #    fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_nocrowding_" + co[cutoff] + ".tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_nocrowding_" + co[cutoff] + ".tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=cutoff, crowding=False)
+
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_test.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_test.tsv")
+popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
+popnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
+facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
+facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
+beta = 1.0
+floor = 0.0
+crowding = True
+
+gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, beta=beta, crowding=crowding, floor=floor)
