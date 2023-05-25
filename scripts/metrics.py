@@ -533,20 +533,31 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
 #for cutoff in co:
 #    fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_nocrowding_" + co[cutoff] + ".tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_nocrowding_" + co[cutoff] + ".tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=cutoff, crowding=False)
 
-#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_test.tsv")
-#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_test.tsv")
 popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
 popnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
 facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
 facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
-beta = 1.0
-floor = 0.0
-crowding = True
 
-#gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, beta=beta, crowding=crowding, floor=floor)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00.tsv")
+gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_test.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_test.tsv")
-cutoff = 30.0
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_noedge.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_noedge.tsv")
+gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=None, facnbrfile=None, crowding=True)
 
-fca_metric(poutfile, foutfile, popfile, facfile, distfile=None, cutoff=cutoff, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=crowding)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_nocrowding.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_nocrowding.tsv")
+gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
+
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_noedge.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_noedge.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True)
+
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_nocrowding.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_nocrowding.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
