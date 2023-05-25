@@ -271,9 +271,27 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
     
     # Read population file
     (pop, pcoord) = _read_popfile(popfile)
+    pkeys = list(pop.keys()) # store main population keys
+    
+    # If a neighboring population file is provided, merge its contents
+    if popnbrfile != None:
+        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
+        pop = {**pop, **popnbr}
+        pcoord = {**pcoord, **pcoordnbr}
+        del popnbr
+        del pcoordnbr
     
     # Read facility file
     (cap, fcoord) = _read_facfile(facfile)
+    fkeys = list(cap.keys()) # store main facility keys
+    
+    # If a neighboring facility file is provided, merge its contents
+    if facnbrfile != None:
+        (capnbr, fcoordnbr) = _read_popfile(facnbrfile)
+        cap = {**cap, **capnbr}
+        fcoord = {**fcoord, **fcoordnbr}
+        del capnbr
+        del fcoordnbr
     
     # Compute the facility crowdedness metrics
     fmet = dict() # facility crowdedness metrics by facfile index
@@ -299,8 +317,8 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
             d = max(geodesic_distance(pcoord[i], fcoord[j])/speed, floor)
             pmet[i] += (cap[j]*(d**(-beta)))/fmet[j]
     
-    # Return facility and population metric dictionaries
-    return (fmet, pmet)
+    # Return facility and population metric dictionaries (original indices only)
+    return ({k: fmet[k] for k in fkeys}, {k: pmet[k] for k in pkeys})
 
 #------------------------------------------------------------------------------
 
