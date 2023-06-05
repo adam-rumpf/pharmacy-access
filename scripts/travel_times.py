@@ -1,7 +1,3 @@
-### Edit: All of the metrics use population-to-facility distances, so we can
-### actually cut some of these computations in half and remove a column from
-### the data table.
-
 """COVID-19 Vaccine accessibility project travel time scripts.
 
 The code below includes various scripts for generating required data from the
@@ -30,31 +26,26 @@ POP_LAT = 2 # population latitude
 POP_LON = 3 # population longitude
 POP_POP = 4 # population total population value
 
-# Location boundaries (large enough to include neighboring counties)
-SANTA_CLARA_N = 38.428
-SANTA_CLARA_S = 35.791
-SANTA_CLARA_E = -120.045
-SANTA_CLARA_W = -123.162
-
-### Edit this to work according to a neighboring county list.
+# Counties neighboring Santa Clara
+SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
+                         "San Francisco", "San Joaquin", "San Mateo",
+                         "Santa Cruz", "Stanislaus"]
 
 #==============================================================================
 # Common Functions
 #==============================================================================
 
-def download_map_box(outfile, north, south, east, west):
-    """Downloads and saves OpenStreetMap data for a rectangular region.
+def download_map_places(outfile, places):
+    """Downloads and saves OpenStreetMap data for a list of counties.
     
     Positional arguments:
         outfile (str) -- Output file path.
-        north (float) -- Northern latitude bound.
-        south (float) -- Southern latitude bound.
-        east (float) -- Eastern longitude bound.
-        west (float) -- Western longitude bound.
+        places (list(dict)) -- List of dictionaries containing county queries.
+            Each such query should be a dictionary of the form:
+            {"county": "COUNTYNAME", "state": "STATENAME"}
     
-    This function downloads and saves a map of a given bounding box as a
-    .graphml file. The map is downloaded using OpenStreetMap driving network
-    data.
+    This function downloads and saves a map as.graphml file. The map is
+    downloaded using OpenStreetMap driving network data.
     """
     
     # Verify that the output file has the .graphml extension
@@ -64,7 +55,7 @@ def download_map_box(outfile, north, south, east, west):
     # Download the map
     print("Downloading map data.")
     t = time.time()
-    G = ox.graph.graph_from_bbox(north, south, east, west, network_type="drive")
+    G = ox.graph.graph_from_place(places, network_type="drive")
     print(f"Map downloaded after {time.time()-t} seconds.")
     
     # Impute missing edge speeds then calculate edge travel times
@@ -197,110 +188,6 @@ def _read_facfile(facfile):
     return (cap, coord)
 
 #==============================================================================
-# Travel Time Computation Scripts
-#==============================================================================
-
-def travel_time(orig, dest, mapfile=None):
-    """Computes the travel time between a given pair of coordinates.
-    
-    Positional arguments:
-        orig (tuple(float)) -- Origin latitude/longitude tuple.
-        dest (tuple(float)) -- Destination latitude/longitude tuple.
-    
-    Keyword arguments:
-        mapfile (str) -- File path to a pre-downloaded .graphml map file.
-            Defaults to None, in which case new map data is downloaded and
-            immediately discarded. The downloaded data consists of the bounding
-            box defined by the origin and destination coordinates, plus a 15%
-            buffer.
-    
-    Returns:
-        (float) -- Travel time (minutes).
-    """
-    
-    # Open specified map file
-    if mapfile != None:
-        
-        # Verify file extension
-        if os.path.splitext(mapfile)[1] != ".graphml":
-            raise ValueError("output file must have the '.graphml' extension")
-        
-        # Generate graph from file
-        G = ox.load_graphml(mapfile)
-    
-    else:
-        
-        # If no map file exists, generate the graph from scratch
-        G = _temporary_map(orig, dest)
-    
-    # Get nodes nearest to origin and destination coordinates
-    onode = ox.distance.nearest_nodes(G, orig[1], orig[0])
-    dnode = ox.distance.nearest_nodes(G, dest[1], dest[0])
-    
-    # Find the shortest path by travel time
-    route = ox.distance.shortest_path(G, onode, dnode, weight="travel_time")
-    
-    # Get all edge times
-    edge_times = ox.utils_graph.get_route_edge_attributes(G, route,
-                                                          "travel_time")
-    
-    # Return the total edge times, converted to minutes
-    return sum(edge_times)/60.0
-
-#------------------------------------------------------------------------------
-
-def travel_time_destination_list(orig, dlist, mapfile=None):
-    """Computes the travel times from one origin to a list of destinations.
-    
-    Positional arguments:
-        orig (tuple(float)) -- Origin latitude/longitude tuple.
-        dlist (list(tuple(float))) -- List of destination latitude/longitude
-            tuples.
-    
-    Keyword arguments:
-        mapfile (str) -- File path to a pre-downloaded .graphml map file.
-            Defaults to None, in which case new map data is downloaded and
-            immediately discarded. The downloaded data consists of the bounding
-            box defined by the origin and destination coordinates, plus a 15%
-            buffer.
-    
-    Returns:
-        (list(float)) -- List of travel times from the single origin to all
-            destinations in the list.
-    """
-    
-    # Open specified map file
-    if mapfile != None:
-        
-        # Verify file extension
-        if os.path.splitext(mapfile)[1] != ".graphml":
-            raise ValueError("output file must have the '.graphml' extension")
-        
-        # Generate graph from file
-        G = ox.load_graphml(mapfile)
-    
-    else:
-        
-        # If no map file exists, generate the graph from scratch
-        G = _temporary_map(orig, dest)
-    
-    # Get size of destination list
-    n = len(dlist)
-    
-    # Generate lists of origin and destination nodes (origin list is constant)
-    onodes = [ox.distance.nearest_nodes(G, orig[1], orig[0]) for i in range(n)]
-    dnodes = [ox.distance.nearest_nodes(G, dlist[i][1], dlist[i][0])
-              for i in range(n)]
-    
-    # Find all shortest path routes
-    routes = ox.distance.shortest_path(G, onodes, dnodes, weight="travel_time",
-                                       cpus=None)
-    
-    # Return a list of all pairwise travel times
-    return [sum(ox.utils_graph.get_route_edge_attributes(G, routes[i],
-            "travel_time"))/60.0 for i in range(n)]
-
-#==============================================================================
 # Batch Processing Scripts
 #==============================================================================
 
@@ -394,9 +281,11 @@ def generate_distance_file(popfile, facfile, mapfile, distfile,
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-#download_map_box(os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml"), 37.4323, 37.1986, -121.7395, -122.0924)
-#print(travel_time((37.4, -122.0), (37.2, -121.7), os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml")))
-#print(travel_time_destination_list((37.4, -122.0), [(37.2, -121.7), (37.4, -121.7)], os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml")))
-#download_map_box(os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), SANTA_CLARA_N, SANTA_CLARA_S, SANTA_CLARA_E, SANTA_CLARA_W)
-#print(travel_time((37.4, -122.0), (37.2, -121.7), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml")))
-generate_distance_file(os.path.join("..", "processed", "santa_clara", "santa_clara_pop_small.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac_small.tsv"), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv"))
+
+# Generate Santa Clara place list
+santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml")
+#santa_clara_places = [{"county": c, "state": "California"} for c in SANTA_CLARA_NEIGHBORS] + [{"county": "Santa Clara", "state": "California"}]
+
+# Download: 501.8285789489746 seconds
+# Edge speeds: 34.205276012420654 seconds
+#download_map_places(, santa_clara_places)
