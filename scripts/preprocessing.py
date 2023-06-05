@@ -24,10 +24,10 @@ import tqdm
 #==============================================================================
 
 # Population center file header (including column labels)
-POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\t\n"
+POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\n"
 
 # Shorter population center file header (for neighbor files)
-POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\t\n"
+POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\n"
 
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
@@ -354,7 +354,7 @@ def county_tract_info(county, cenfile, append=[], geocode=9, countycode=14,
     """
     
     # Ensure that we have a list of county names
-    if type(county) is not list:
+    if type(county) is not list and type(county) is not tuple:
         county = [county]
     
     # Initialize output dictionary
@@ -405,7 +405,7 @@ def ini_section_keys(inifile, section):
     """
     
     # Convert singleton section into a list
-    if type(section) != list:
+    if type(section) is not list and type(section) is not tuple:
         section = [section]
     
     # Initialize config file parser
@@ -610,6 +610,49 @@ def pharmacy_to_facility(pharmfile, facfile, offset=0):
     
     return index
 
+#------------------------------------------------------------------------------
+
+def county_svi(fips_prefix, svifile=os.path.join("..", "data", "_general",
+               "SVI2020_US.csv"), fields=["RPL_THEMES"]):
+    """Reads fields from the master SVI data file.
+    
+    Positional arguments:
+        fips_prefix (str) -- FIPS code prefix. Every tract with this prefix
+            will be logged in the output dictionary. For reference, the first
+            2 digits correspond to the state while the next 3 correspond to the
+            county.
+    
+    Keyword arguments:
+        svifile (str) -- Path to SVI file. Defaults to this repo's
+            data/_general/SVI2020_US.csv file.
+        fields (list(str)) -- Field names to read. Defaults to ["RPL_THEMES"],
+            which is the overall SVI percentile.
+    
+    Returns:
+        (dict(tuple(float))) -- Dictionary of tract-level entries under the
+            "field" columns for every census tract that matches the given FIPS
+            prefix.
+    """
+    
+    # Convert singleton fields argument to a list
+    if type(fields) is not list and type(fields) is not tuple:
+        fields = [fields]
+    
+    # Initialize output dictionary
+    entries = dict()
+    
+    # Read contents of input file as a CSV
+    with open(svifile, 'r') as f:
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+        for row in reader:
+            # Filter rows with the correct FIPS prefix
+            if row["FIPS"][:len(fips_prefix)] != fips_prefix:
+                continue
+            # Gather all requested fields in the output dictionary
+            entries[row["FIPS"]] = tuple(float(row[s]) for s in fields)
+    
+    return entries
+
 #==============================================================================
 # Location-Specific Preprocessing Scripts
 #==============================================================================
@@ -638,6 +681,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     # Define location-specific file names
     adi_file = os.path.join("..", "data", "santa_clara",
                             "CA_2020_ADI_Census Block Group_v3.2.csv")
+    svi_file = os.path.join("..", "data", "_general", "SVI2020_US.csv")
     fac_file = os.path.join("..", "data", "santa_clara",
                             "Santa_Clara_County_Pharmacies.csv")
     fac_nbr_file = os.path.join("..", "data", "santa_clara",
@@ -649,8 +693,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     # Define location-specific parameters
     neighbors = SANTA_CLARA_NEIGHBORS
     
-    # Gather population data from census file (leaving room for vacc and adi)
-    pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1])
+    # Gather population data from census file (leaving room for extra fields)
+    pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1, -1])
     
     # Gather vaccination rates
     with open(vacc_file, 'r') as f:
@@ -712,6 +756,15 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             if adi[fips][1] > 0:
                 pdic[fips][4] = adi[fips][0]/adi[fips][1]
     
+    # Gather SVI rankings
+    santa_clara_fips = list(pdic.keys())[0][:5] # county's FIPS prefix
+    svi = county_svi(santa_clara_fips, fields=["RPL_THEMES"]) # SVI dictionary
+    for fips in pdic:
+        if fips in svi:
+            pdic[fips][5] = svi[fips][0]
+    
+    del svi
+    
     # Write population output file
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
@@ -724,7 +777,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             line = str(index) + '\t' + str(sk[i]) + '\t'
             for item in pdic[sk[i]]:
                 line += str(item) + '\t'
-            f.write(line + '\n')
+            f.write(line[:-1] + '\n')
             index += 1
     
     # Gather neighboring county data
@@ -747,7 +800,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             line = str(index) + '\t' + str(sk[i]) + '\t'
             for item in pndic[sk[i]]:
                 line += str(item) + '\t'
-            f.write(line + '\n')
+            f.write(line[:-1] + '\n')
             index += 1
     
     del pdic
@@ -774,4 +827,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
 
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_test.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac_test.tsv"))
+#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))

@@ -3,6 +3,7 @@
 The raw data files for each location should be included in subdirectories with the following structure:
 ```
 _general/
+    SVI2020_US.csv
     Vaccines.gov__COVID-19_vaccinating_provider_locations.csv
 ca/
     cageo2020.pl
@@ -17,6 +18,7 @@ The files for each location, along with their sources, are explained below.
 
 ## General
 
+* [`SVI2020_US.csv`](https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html): Nationwide 2020 Social Vulnerability Index (SVI) values gathered May 25, 2023.
 * [`Vaccines.gov__COVID-19_vaccinating_provider_locations.csv`](https://data.cdc.gov/Vaccinations/Vaccines-gov-COVID-19-vaccinating-provider-locatio/5jp2-pgaw): The vaccines.gov master list of vaccine providers gathered March 21, 2023.
 
 ## CA (California)
