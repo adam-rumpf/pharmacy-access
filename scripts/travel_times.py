@@ -1,3 +1,7 @@
+### Edit: All of the metrics use population-to-facility distances, so we can
+### actually cut some of these computations in half and remove a column from
+### the data table.
+
 """COVID-19 Vaccine accessibility project travel time scripts.
 
 The code below includes various scripts for generating required data from the
@@ -31,6 +35,8 @@ SANTA_CLARA_N = 38.428
 SANTA_CLARA_S = 35.791
 SANTA_CLARA_E = -120.045
 SANTA_CLARA_W = -123.162
+
+### Edit this to work according to a neighboring county list.
 
 #==============================================================================
 # Common Functions

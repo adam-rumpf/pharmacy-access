@@ -43,5 +43,4 @@ A distance file is generated for each location (including all neighbors), indica
 
 * `pid`: Index of a population center defined in the population file.
 * `fid`: Index of a facility defined in the facility file.
-* `pftime`: Travel time (minutes) from the indicated population center to the indicated facility.
-* `fptime`: Travel time (minutes) from the indicated facility to the indicated population center.
+* `time`: Travel time (minutes) from the indicated population center to the indicated facility.
