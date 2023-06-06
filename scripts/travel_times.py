@@ -5,8 +5,10 @@ preprocessed data files, notably including origin/destination travel time
 matrices.
 """
 
+import heapq
 import os.path
 import time
+import xml.etree.ElementTree as ET
 
 import osmnx as ox
 import tqdm
@@ -71,44 +73,180 @@ def download_map_places(outfile, places):
 
 #------------------------------------------------------------------------------
 
-def _temporary_map(orig, dest, buffer=0.15):
-    """Download OpenStreetMap data for a rectangular region without saving.
+def graphml_to_tsv(mapfile, arcfile, weight="travel_time"):
+    """Converts a .graphml map into a simplified pure graph file.
     
     Positional arguments:
-        orig (tuple(float)) -- Origin latitude/longitude tuple.
-        dest (tuple(float)) -- Destination latitude/longitude tuple.
+        mapfile (str) -- Path to input .graphml file.
+        arcfile (str) -- Path to output arc data file.
     
     Keyword arguments:
-        buffer (float) -- Fractional buffer to apply the boundaries of the
-            bounding box. Defaults to 0.15, which indicates that the bounding
-            box will be 15% larger than the smallest box containing the given
-            origin and destination.
+        weight (str) -- Edge attribute to use for defining arc weights.
+            Defaults to "travel_time".
     
-    Returns:
-        (ox.graph) -- The graph corresponding to the selected bounding box,
-            plus a given buffer.
+    The output graph file simply defines arc-level data since there we have no
+    need for node-level data. The arc file includes the following tab-separated
+    columns, in order:
+        tail -- Node index of arc's tail (origin).
+        head -- Node index of arc's head (destination).
+        weight -- Numerical weight to use in computing distances.
+    
+    The node indices in the output file correspond to those used in the
+    original .graphml file.
     """
     
-    # Find the origin/destination bounding box
-    north = max(orig[1], dest[1])
-    south = min(orig[1], dest[1])
-    east = max(orig[0], dest[0])
-    west = min(orig[0], dest[0])
-    dim = max(north - south, east - west)
-    north += buffer*dim
-    south -= buffer*dim
-    east += buffer*dim
-    west -= buffer*dim
+    # Define default .graphml namespace
+    namespace = "{http://graphml.graphdrawing.org/xmlns}"
     
-    # Generate graph from bounding box
-    G = ox.graph.graph_from_bbox(north, south, east, west, network_type="drive")
+    # Read .graphml file as an XML element tree
+    tree = ET.parse(mapfile)
+    root = tree.getroot()
     
-    # Impute missing edge speeds then calculate edge travel times
-    G = ox.add_edge_speeds(G) # kph
-    G = ox.add_edge_travel_times(G)
+    # Find the ID number of the given weight attribute
+    wid = None
+    for child in root.findall(namespace + "key"):
+        if (child.get("for") == "edge") and (child.get("attr.name") == weight):
+            wid = child.get("id")
+            break
     
-    # Return the graph
-    return G
+    # Report an error if the weight field was not found
+    if wid == None:
+        ValueError("weight field '" + weight + "' not found in graphml file")
+    
+    # Find the "graph" tag
+    for child in root:
+        if child.tag != namespace + "graph":
+            continue
+        
+        # Initialize the edge list
+        edges = [[None, None, None] for i in
+                  range(len(child.findall(namespace + "edge")))]
+        
+        # Go through each edge one-at-a-time
+        i = 0
+        for e in tqdm.tqdm(child.findall(namespace + "edge")):
+            
+            edges[i][0] = e.attrib["source"] # tail
+            edges[i][1] = e.attrib["target"] # head
+            
+            for f in e:
+                if f.attrib["key"] == wid:
+                    edges[i][2] = f.text
+                    break
+            
+            i += 1
+    
+    # Write output file
+    with open(arcfile, 'w') as f:
+        
+        # Write header
+        f.write("tail\thead\tweight\n")
+        
+        # Write array contents to file
+        for i in range(len(edges)):
+            f.write(str(edges[i][0]) + "\t" + str(edges[i][1]) + "\t" +
+                    str(edges[i][2]) + "\n")
+
+#------------------------------------------------------------------------------
+
+def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile):
+    """Finds the nodes that correspond to population and facility locations.
+    
+    Positional arguments:
+        mapfile (str) -- Path to input .graphml file.
+        popfile (str) -- Path to preprocessed population file.
+        pnodefile (str) -- Path to population node output file.
+        facfile (str) -- Path to preprocessed facility file.
+        fnodefile (str) -- Path to facility node output file.
+    
+    Each population center is snapped to its nearest node in the .graphml file
+    based on the geographic coordinates in the popfile. The output pnodefile
+    is a tab-separated file containing the following columns:
+        id -- Population center index from the population file.
+        node -- Corresponding node index from the .graphml file.
+    
+    The facfile and fnodefile arguments are analogous, but are for mapping
+    facilities to their nearest nodes.
+    """
+    
+    # Open graph file
+    G = ox.load_graphml(mapfile)
+    
+    # Get population center coordinates
+    (_, pcoord) = _read_popfile(popfile)
+    pid = list(pcoord) # get population center IDs
+    
+    # Find nodes nearest each population center
+    print("Mapping population nodes.")
+    pnodes = ox.distance.nearest_nodes(G, [pcoord[i][1] for i in pid],
+                                          [pcoord[i][0] for i in pid])
+    
+    # Write output file
+    with open(pnodefile, 'w') as f:
+        f.write("id\tnode\n")
+        for i in range(len(pid)):
+            f.write(str(pid[i]) + "\t" + str(pnodes[i]) + "\n")
+    
+    del pid
+    del pcoord
+    
+    # Get facility coordinates
+    (_, fcoord) = _read_facfile(facfile)
+    fid = list(fcoord) # get facility IDs
+    
+    # Find nodes nearest each facility
+    print("Mapping facilities.")
+    fnodes = ox.distance.nearest_nodes(G, [fcoord[i][1] for i in fid],
+                                          [fcoord[i][0] for i in fid])
+    
+    # Write output file
+    with open(fnodefile, 'w') as f:
+        f.write("id\tnode\n")
+        for i in range(len(fid)):
+            f.write(str(fid[i]) + "\t" + str(fnodes[i]) + "\n")
+    
+    del fid
+    del fcoord
+
+#------------------------------------------------------------------------------
+
+def process_graph(arcfile, arcfile_new=None, popfile=None, popfile_nodes=None,
+                  facfile=None, facfile_nodes=None):
+    """Normalizes node labels and generates origin/destination node lists.
+    
+    Positional arguments:
+        arcfile (str) -- Path to input arc data file.
+    
+    Keyword arguments:
+        arcfile_new (str) -- Path to updated arc data file. Defaults to None,
+            in which case the original is overwritten.
+        popfile (str) -- Path to preprocessed population file. Defaults to
+            None, in which case population centers are not mapped to nodes.
+        popfile_nodes (str) -- Path to population center node file. Defaults to
+            None, in which case population centers are not mapped to nodes.
+        facfile (str) -- Path to preprocessed facility file. Defaults to None,
+            in which case facilities are not mapped to nodes.
+        facfile_nodes (str) -- Path to facility node file. Defaults to None, in
+            which case facilities are not mapped to nodes.
+    
+    The main purpose of this function is to relabel the node IDs in an arc file
+    to consist of consecutive integers beginning at 0 (i.e. 0, 1, 2, 3, ...).
+    
+    The optional population and facility file arguments are for determining
+    which nodes correspond to the given population centers and vaccination
+    facilities. popfile and facfile are both inputs, and are meant to consist
+    of the preprocessed population and facility files generated by the main
+    preprocessing script. popfile_nodes and facfile_nodes are both outputs, and
+    consist of two columns to associate locations from the original file with
+    nodes in the relabeled arc file.
+    """
+    
+    ### Update: We need the original .graphml file to snap locations.
+    ### All of this needs to be built into the .graphml conversion script above.
+    ### Alternatively, save the nodes using the original map indices, and then
+    ### just convert everything into 0-indexed integers within the Dijkstra script.
+    
+    pass######################################
 
 #------------------------------------------------------------------------------
 
@@ -283,9 +421,17 @@ def generate_distance_file(popfile, facfile, mapfile, distfile,
 # Comment or uncomment the function calls below to process each location.
 
 # Generate Santa Clara place list
-santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml")
+santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_map.graphml")
+santa_clara_arcfile = os.path.join("..", "graphs", "santa_clara", "santa_clara_arcs.tsv")
+santa_clara_popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
+santa_clara_facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
+santa_clara_pnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_popnodes.tsv")
+santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_facnodes.tsv")
 #santa_clara_places = [{"county": c, "state": "California"} for c in SANTA_CLARA_NEIGHBORS] + [{"county": "Santa Clara", "state": "California"}]
 
 # Download: 501.8285789489746 seconds
 # Edge speeds: 34.205276012420654 seconds
 #download_map_places(, santa_clara_places)
+
+#graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time")
+#map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile)
