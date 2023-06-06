@@ -334,8 +334,6 @@ def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
     factor.
     """
     
-    # Generate a map of node IDs to their positions in the sorted ID list
-    
     # Find all unique node labels
     labelset = set() # set of all unique node labels used
     with open(arcfile, 'r') as f:
@@ -376,14 +374,29 @@ def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
             s = line.strip().split()
             dnodes.append(position[int(s[1])])
     
+    # Build adjacency list and gather weights from arc file
+    adj = [[] for i in range(size)] # adjacency table
+    weight = [[] for i in range(size)] # weight table
+    with open(arcfile, 'r') as f:
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            # Remap endpoints
+            tail = position[int(s[0])]
+            head = position[int(s[1])]
+            # Multiply weight and cast as integer
+            wt = int(factor*float(s[2]))
+            # Add data to adjacency and weight lists
+            adj[tail].append(head)
+            weight[tail].append(wt)
     
+    # Recursively convert lists to tuples
+    adj = tuple(tuple(adj[i]) for i in range(len(adj)))
+    weight = tuple(tuple(weight[i]) for i in range(len(weight)))
     
-    
-    
-    
-    
-    ###
-    return (None, None, size, onodes, dnodes)
+    return (adj, weight, size, onodes, dnodes)
 
 #==============================================================================
 # Shortest Path Computation
