@@ -34,7 +34,7 @@ SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
                          "Santa Cruz", "Stanislaus"]
 
 #==============================================================================
-# Common Functions
+# Data Gathering and Conversion
 #==============================================================================
 
 def download_map_places(outfile, places):
@@ -70,6 +70,83 @@ def download_map_places(outfile, places):
     # Save the map
     ox.save_graphml(G, outfile)
     print("Map successfully saved as " + str(outfile))
+
+#------------------------------------------------------------------------------
+
+def _read_popfile(popfile):
+    """Reads a population file and returns dictionaries of data.
+    
+    Positional arguments:
+        popfile (str) -- Preprocessed population file path, which should
+            include the coordinates and population of each population
+            cetner.
+    
+    Returns:
+        pop (dict(int)) -- Dictionary of population counts.
+        coord (dict((float,float))) -- Dictionary of population center
+            coordinates, as (latitude,longitude) tuples.
+    
+    All dictionaries are indexed by the population center IDs contained in the
+    first column of the population file.
+    """
+    
+    # Initialize dictionaries
+    pop = dict() # dictionary of populations by popfile index
+    coord = dict() # dictionary of latitutde/longitude pairs by popfile index
+    
+    # Read file
+    with open(popfile, 'r') as f:
+        
+        for line in f:
+            
+            # Skip the comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            # Get numbers from line
+            s = line.strip().split('\t')
+            pop[int(s[0])] = int(s[POP_POP])
+            coord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+    
+    return (pop, coord)
+
+#------------------------------------------------------------------------------
+
+def _read_facfile(facfile):
+    """Reads a facility file and returns dictionaries of data.
+    
+    Positional arguments:
+        facfile (str) -- Preprocessed facility file path, which should include
+            the coordinates and capacity of each vaccination facility.
+    
+    Returns:
+        cap (dict(int)) -- Dictionary of facility capacities.
+        coord (dict((float,float))) -- Dictionary of facility coordinates,
+            as (latitude,longitude) tuples.
+    
+    All dictionaries are indexed by the facility IDs contained in the first
+    column of the facility file.
+    """
+    
+    # Initialize dictionaries
+    cap = dict() # dictionary of facility capacities by facfile index
+    coord = dict() # dictionary of latitude/longitude pairs by facfile index
+    
+    # Read file
+    with open(facfile, 'r') as f:
+        
+        for line in f:
+            
+            # Skip the comment line
+            if line[0].isdigit() == False:
+                continue
+            
+            # Get numbers from line
+            s = line.strip().split('\t')
+            cap[int(s[0])] = float(s[FAC_CAP])
+            coord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
+    
+    return (cap, coord)
 
 #------------------------------------------------------------------------------
 
@@ -210,120 +287,135 @@ def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile):
 
 #------------------------------------------------------------------------------
 
-def process_graph(arcfile, arcfile_new=None, popfile=None, popfile_nodes=None,
-                  facfile=None, facfile_nodes=None):
-    """Normalizes node labels and generates origin/destination node lists.
+def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
+    """Generates an adjacency list representation of a graph and its O/D nodes.
     
     Positional arguments:
-        arcfile (str) -- Path to input arc data file.
+        arcfile (str) -- Path to the network's arc definition file, which
+            should contain the tail node, head node, and travel time for each
+            arc.
+        pnodefile (str) -- Path to the network's population node definition
+            file, which should contain a list of origin nodes.
+        fnodefile (str) -- Path to the network's facility node definition file,
+            which should contain a list of destination nodes.
     
     Keyword arguments:
-        arcfile_new (str) -- Path to updated arc data file. Defaults to None,
-            in which case the original is overwritten.
-        popfile (str) -- Path to preprocessed population file. Defaults to
-            None, in which case population centers are not mapped to nodes.
-        popfile_nodes (str) -- Path to population center node file. Defaults to
-            None, in which case population centers are not mapped to nodes.
-        facfile (str) -- Path to preprocessed facility file. Defaults to None,
-            in which case facilities are not mapped to nodes.
-        facfile_nodes (str) -- Path to facility node file. Defaults to None, in
-            which case facilities are not mapped to nodes.
-    
-    The main purpose of this function is to relabel the node IDs in an arc file
-    to consist of consecutive integers beginning at 0 (i.e. 0, 1, 2, 3, ...).
-    
-    The optional population and facility file arguments are for determining
-    which nodes correspond to the given population centers and vaccination
-    facilities. popfile and facfile are both inputs, and are meant to consist
-    of the preprocessed population and facility files generated by the main
-    preprocessing script. popfile_nodes and facfile_nodes are both outputs, and
-    consist of two columns to associate locations from the original file with
-    nodes in the relabeled arc file.
-    """
-    
-    ### Update: We need the original .graphml file to snap locations.
-    ### All of this needs to be built into the .graphml conversion script above.
-    ### Alternatively, save the nodes using the original map indices, and then
-    ### just convert everything into 0-indexed integers within the Dijkstra script.
-    
-    pass######################################
-
-#------------------------------------------------------------------------------
-
-def _read_popfile(popfile):
-    """Reads a population file and returns dictionaries of data.
-    
-    Positional arguments:
-        popfile (str) -- Preprocessed population file path, which should
-            include the coordinates and population of each population
-            cetner.
+        factor (float) -- Factor by which to multiply all arc weights before
+            casting them as integers. Defaults to 10.
     
     Returns:
-        pop (dict(int)) -- Dictionary of population counts.
-        coord (dict((float,float))) -- Dictionary of population center
-            coordinates, as (latitude,longitude) tuples.
+        adj (tuple(tuple(int))) -- Tuple of tuples of out-neighbors. adj[i][j]
+            indicates the jth out-neighbor of the ith node.
+        weight (tuple(tuple(int))) -- Tuple of tuples of arc weights.
+            weight[i][j] indicates the weight of the arc from node i to the
+            jth out-neighbor of i (i.e. the weight of the arc from i to
+            adj[i][j]).
+        size (int) -- Number of nodes.
+        onodes (list(int)) -- List of origin node indices.
+        dnodes (list(int)) -- List of destination node indices.
     
-    All dictionaries are indexed by the population center IDs contained in the
-    first column of the population file.
+    This function generates an adjacency list representation of a graph defined
+    in an arc data file. It also performs a few preprocessing tasks to
+    simplify the shortest path generation process, including relabeling the
+    nodes and altering the arc weights.
+    
+    More specifically, the node indices in the arc file are arbitrary positive
+    integers from the original .graphml file. This script begins by relabeling
+    the indices to become a list of zero-indexed consecutive integers (0, 1, 2,
+    ...) so that the node indices can be used as list positions. The relabeling
+    simply associates each node ID with its position in the sorted node ID
+    list. The same relabeling is performed on the origin and destination node
+    lists, which is why the two relabeled lists are returned.
+    
+    The arc weights are expected to be float values from the original .graphml
+    file. This script multiplies all weights by a given factor and then casts
+    them as integers in order to speed up the shortest path computations. Any
+    resulting path lengths should be divided by this same multiplicative
+    factor.
     """
     
-    # Initialize dictionaries
-    pop = dict() # dictionary of populations by popfile index
-    coord = dict() # dictionary of latitutde/longitude pairs by popfile index
+    # Generate a map of node IDs to their positions in the sorted ID list
     
-    # Read file
-    with open(popfile, 'r') as f:
-        
+    # Find all unique node labels
+    labelset = set() # set of all unique node labels used
+    with open(arcfile, 'r') as f:
+        # Read all unique labels from arc file
         for line in f:
-            
-            # Skip the comment line
+            # Skip comment line
             if line[0].isdigit() == False:
                 continue
-            
-            # Get numbers from line
-            s = line.strip().split('\t')
-            pop[int(s[0])] = int(s[POP_POP])
-            coord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+            s = line.strip().split()
+            labelset.add(int(s[0]))
+            labelset.add(int(s[1]))
     
-    return (pop, coord)
+    # Sort the node label list and use to generate a position map
+    size = len(labelset) # number of nodes
+    labels = list(labelset)
+    del labelset
+    labels.sort()
+    position = {labels[i]: i for i in range(len(labels))} # relabeling map
+    del labels
+    
+    # Relabel origin nodes
+    onodes = [] # origin node list
+    with open(pnodefile, 'r') as f:
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            onodes.append(position[int(s[1])])
+    
+    # Relabel destination nodes
+    dnodes = [] # destination node list
+    with open(fnodefile, 'r') as f:
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            dnodes.append(position[int(s[1])])
+    
+    
+    
+    
+    
+    
+    
+    ###
+    return (None, None, size, onodes, dnodes)
 
-#------------------------------------------------------------------------------
+#==============================================================================
+# Shortest Path Computation
+#==============================================================================
 
-def _read_facfile(facfile):
-    """Reads a facility file and returns dictionaries of data.
+def pairwise_distances(arcfile, pnodefile, fnodefile, factor=10):
+    """Computes all pairwise distances from an origin set to a destination set.
     
     Positional arguments:
-        facfile (str) -- Preprocessed facility file path, which should include
-            the coordinates and capacity of each vaccination facility.
+        arcfile (str) -- Path to the network's arc definition file, which
+            should contain the tail node, head node, and travel time for each
+            arc.
+        pnodefile (str) -- Path to the network's population node definition
+            file, which should contain a list of origin nodes.
+        fnodefile (str) -- Path to the network's facility node definition file,
+            which should contain a list of destination nodes.
+    
+    Keyword arguments:
+        factor (float) -- Factor by which to multiply all arc weights before
+            casting them as integers. Defaults to 10.
     
     Returns:
-        cap (dict(int)) -- Dictionary of facility capacities.
-        coord (dict((float,float))) -- Dictionary of facility coordinates,
-            as (latitude,longitude) tuples.
-    
-    All dictionaries are indexed by the facility IDs contained in the first
-    column of the facility file.
+        ### Decide on output format. Probably a list of lists.
     """
     
-    # Initialize dictionaries
-    cap = dict() # dictionary of facility capacities by facfile index
-    coord = dict() # dictionary of latitude/longitude pairs by facfile index
+    # Generate adjacency list representation
+    (adj, weight, size, onodes, dnodes) = _generate_adjacency_list(arcfile,
+                                           pnodefile, fnodefile, factor=factor)
     
-    # Read file
-    with open(facfile, 'r') as f:
-        
-        for line in f:
-            
-            # Skip the comment line
-            if line[0].isdigit() == False:
-                continue
-            
-            # Get numbers from line
-            s = line.strip().split('\t')
-            cap[int(s[0])] = float(s[FAC_CAP])
-            coord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
+    ### Eventually edit this to write distances to a log file as it goes.
     
-    return (cap, coord)
+    pass###
 
 #==============================================================================
 # Batch Processing Scripts
@@ -435,3 +527,4 @@ santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara
 
 #graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time")
 #map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile)
+pairwise_distances(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, factor=10)
