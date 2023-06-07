@@ -259,7 +259,8 @@ def graphml_to_tsv(mapfile, arcfile, weight="travel_time", directed=True):
 
 #------------------------------------------------------------------------------
 
-def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile):
+def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile,
+                       popnbrfile=None, facnbrfile=None):
     """Finds the nodes that correspond to population and facility locations.
     
     Positional arguments:
@@ -269,27 +270,51 @@ def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile):
         facfile (str) -- Path to preprocessed facility file.
         fnodefile (str) -- Path to facility node output file.
     
+    Keyword arguments:
+        popnbrfile (str) -- Preprocessed neighboring county population file
+            path. Defaults to None.
+        facnbrfile (str) -- Preprocessed neighboring county facility file path.
+            Defaults to None.
+    
     Each population center is snapped to its nearest node in the .graphml file
     based on the geographic coordinates in the popfile. The output pnodefile
     is a tab-separated file containing the following columns:
         id -- Population center index from the population file.
         node -- Corresponding node index from the .graphml file.
     
-    The facfile and fnodefile arguments are analogous, but are for mapping
-    facilities to their nearest nodes.
+    If a popnbrfile is given, its included locations are included in the
+    population node list (it is assumed here that no neighbor node ID is the
+    same as a main county node ID, which should matches the format produced by
+    the preprocessing scripts).
+    
+    The facfile, fnodefile, and facnbrfile arguments are analogous, but are for
+    mapping facilities to their nearest nodes.
     """
     
     # Open graph file
     G = ox.load_graphml(mapfile)
     
+    t = time.time()
+    
     # Get population center coordinates
     (_, pcoord) = _read_popfile(popfile)
-    pid = list(pcoord) # get population center IDs
+    
+    # If a neighboring population file is provided, merge its contents
+    if popnbrfile != None:
+        (_, pcoordnbr) = _read_popfile(popnbrfile)
+        pcoord = {**pcoord, **pcoordnbr}
+        del pcoordnbr
+    
+    # Get population center IDs
+    pid = list(pcoord.keys())
+    pid.sort()
     
     # Find nodes nearest each population center
-    print("Mapping population nodes.")
+    print(f"Mapping {len(pcoord)} population nodes.")
+    t = time.time()
     pnodes = ox.distance.nearest_nodes(G, [pcoord[i][1] for i in pid],
                                           [pcoord[i][0] for i in pid])
+    print(f"Nodes mapped after {time.time()-t:.1} seconds.")
     
     # Write output file
     with open(pnodefile, 'w') as f:
@@ -302,12 +327,23 @@ def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile):
     
     # Get facility coordinates
     (_, fcoord) = _read_facfile(facfile)
-    fid = list(fcoord) # get facility IDs
+    
+    # If a neighboring facility file is provided, merge its contents
+    if facnbrfile != None:
+        (_, fcoordnbr) = _read_popfile(facnbrfile)
+        fcoord = {**fcoord, **fcoordnbr}
+        del fcoordnbr
+    
+    # Get facility IDs
+    fid = list(fcoord.keys())
+    fid.sort()
     
     # Find nodes nearest each facility
-    print("Mapping facilities.")
+    print(f"Mapping {len(fcoord)} facility nodes.")
+    t = time.time()
     fnodes = ox.distance.nearest_nodes(G, [fcoord[i][1] for i in fid],
                                           [fcoord[i][0] for i in fid])
+    print(f"Nodes mapped after {time.time()-t:.1} seconds.")
     
     # Write output file
     with open(fnodefile, 'w') as f:
@@ -618,7 +654,9 @@ def distance_file(arcfile, pnodefile, fnodefile, distfile, factor=10,
 santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_map.graphml")
 santa_clara_arcfile = os.path.join("..", "graphs", "santa_clara", "santa_clara_arcs.tsv")
 santa_clara_popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
+santa_clara_popfile_nbr = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
 santa_clara_facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
+santa_clara_facfile_nbr = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
 santa_clara_pnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_popnodes.tsv")
 santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_facnodes.tsv")
 santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
@@ -629,5 +667,5 @@ santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_cla
 #download_map_places(santa_clara_mapfile, santa_clara_places)
 
 #graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time", directed=False)
-#map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile)
-distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
+#map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile, popnbrfile=santa_clara_popfile_nbr, facnbrfile=santa_clara_facfile_nbr)
+#distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
