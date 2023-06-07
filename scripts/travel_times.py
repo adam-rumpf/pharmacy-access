@@ -150,7 +150,7 @@ def _read_facfile(facfile):
 
 #------------------------------------------------------------------------------
 
-def graphml_to_tsv(mapfile, arcfile, weight="travel_time"):
+def graphml_to_tsv(mapfile, arcfile, weight="travel_time", directed=True):
     """Converts a .graphml map into a simplified pure graph file.
     
     Positional arguments:
@@ -160,6 +160,9 @@ def graphml_to_tsv(mapfile, arcfile, weight="travel_time"):
     Keyword arguments:
         weight (str) -- Edge attribute to use for defining arc weights.
             Defaults to "travel_time".
+        directed (bool) -- Whether to treat the network as directed. Defaults
+            to True, in which case the one-way designation of roads is taken
+            into account. If False, all roads are taken as two-way.
     
     The output graph file simply defines arc-level data since there we have no
     need for node-level data. The arc file includes the following tab-separated
@@ -170,6 +173,9 @@ def graphml_to_tsv(mapfile, arcfile, weight="travel_time"):
     
     The node indices in the output file correspond to those used in the
     original .graphml file.
+    
+    Two-way roads are handled by duplicating every arc in the output file with
+    its head and tail reversed.
     """
     
     # Define default .graphml namespace
@@ -190,28 +196,55 @@ def graphml_to_tsv(mapfile, arcfile, weight="travel_time"):
     if wid == None:
         ValueError("weight field '" + weight + "' not found in graphml file")
     
+    # Find the ID number of the "oneway" attribute
+    oneid = None
+    for child in root.findall(namespace + "key"):
+        if (child.get("for") == "edge") and (child.get("attr.name") == "oneway"):
+            oneid = child.get("id")
+            break
+    
+    # Initialize edge weight dictionary, indexed by (tail, head) pair
+    edges = dict()
+    
     # Find the "graph" tag
     for child in root:
         if child.tag != namespace + "graph":
             continue
         
-        # Initialize the edge list
-        edges = [[None, None, None] for i in
-                  range(len(child.findall(namespace + "edge")))]
-        
         # Go through each edge one-at-a-time
-        i = 0
         for e in tqdm.tqdm(child.findall(namespace + "edge")):
             
-            edges[i][0] = e.attrib["source"] # tail
-            edges[i][1] = e.attrib["target"] # head
+            # Get endpoints
+            tail = e.attrib["source"]
+            head = e.attrib["target"]
             
+            # Initialize edge weight and one-way status
+            wt = 0.0
+            oneway = False
+            
+            # Read fields
             for f in e:
                 if f.attrib["key"] == wid:
-                    edges[i][2] = f.text
-                    break
+                    wt = f.text
+                if (directed == True and f.attrib["key"] == oneid and
+                    f.text == "True"):
+                    oneway = True
             
-            i += 1
+            # If the edge is new, create a new dictionary entry
+            if (tail, head) not in edges:
+                edges[(tail, head)] = wt
+            else:
+                # Otherwise update the weight if smaller
+                if wt < edges[(tail, head)]:
+                    edges[(tail, head)] = wt
+            
+            # If the edge is not one-way, repeat the process for its reverse
+            if oneway == False:
+                if (head, tail) not in edges:
+                    edges[(head, tail)] = wt
+                else:
+                    if wt < edges[(head, tail)]:
+                        edges[(head, tail)] = wt
     
     # Write output file
     with open(arcfile, 'w') as f:
@@ -220,9 +253,9 @@ def graphml_to_tsv(mapfile, arcfile, weight="travel_time"):
         f.write("tail\thead\tweight\n")
         
         # Write array contents to file
-        for i in range(len(edges)):
-            f.write(str(edges[i][0]) + "\t" + str(edges[i][1]) + "\t" +
-                    str(edges[i][2]) + "\n")
+        for pair in edges:
+            f.write(str(pair[0]) + "\t" + str(pair[1]) + "\t" +
+                    str(edges[pair]) + "\n")
 
 #------------------------------------------------------------------------------
 
@@ -503,21 +536,13 @@ def distance_table(arcfile, pnodefile, fnodefile, factor=10):
     # Fill rows of table one source at a time
     for i in tqdm.tqdm(range(len(onodes))):
         dist[i] = _dijkstra_single(adj, weight, size, onodes[0], dnodes)
-        break
-    print(dist[0])
-    print(dist[0][0])
-    dist[0][0] /= factor
-    print(dist[0][0])
-    print("="*20)
     
     ### Eventually edit this to write distances to a log file as it goes.
     
     # Undo multiplicative factor
     for i in range(len(onodes)):
         for j in range(len(dnodes)):
-            print(f"{i},{j}, {dist[i][j]}")
             dist[i][j] /= factor
-        break
     
     return dist
 
@@ -603,6 +628,6 @@ santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_cla
 # Edge speeds: 34.205276012420654 seconds
 #download_map_places(santa_clara_mapfile, santa_clara_places)
 
-#graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time")
+#graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time", directed=False)
 #map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile)
 distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
