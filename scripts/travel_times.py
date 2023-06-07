@@ -379,7 +379,6 @@ def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
             weight[i][j] indicates the weight of the arc from node i to the
             jth out-neighbor of i (i.e. the weight of the arc from i to
             adj[i][j]).
-        size (int) -- Number of nodes.
         onodes (list(int)) -- List of origin node indices.
         dnodes (list(int)) -- List of destination node indices.
     
@@ -465,13 +464,13 @@ def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
     adj = tuple(tuple(adj[i]) for i in range(len(adj)))
     weight = tuple(tuple(weight[i]) for i in range(len(weight)))
     
-    return (adj, weight, size, onodes, dnodes)
+    return (adj, weight, onodes, dnodes)
 
 #==============================================================================
 # Shortest Path Computation
 #==============================================================================
 
-def _dijkstra_single(adj, weight, size, s, dnodes):
+def _dijkstra_single(adj, weight, s, dnodes):
     """Carries out Dijkstra's algorithm for a single source.
     
     Positional arguments:
@@ -481,7 +480,6 @@ def _dijkstra_single(adj, weight, size, s, dnodes):
             weight[i][j] indicates the weight of the arc from node i to the
             jth out-neighbor of i (i.e. the weight of the arc from i to
             adj[i][j]).
-        size (int) -- Number of nodes.
         s (int) -- Single origin node.
         dnodes (list(int)) -- List of destination nodes.
     
@@ -494,7 +492,7 @@ def _dijkstra_single(adj, weight, size, s, dnodes):
     """
     
     # Initialize distance list
-    dist = [None for i in range(size)]
+    dist = [None for i in range(len(adj))]
     dist[s] = 0 # origin's distance to self is zero
     
     # Initialize explored node set
@@ -563,7 +561,7 @@ def distance_table(arcfile, pnodefile, fnodefile, factor=10):
     """
     
     # Generate adjacency list representation
-    (adj, weight, size, onodes, dnodes) = _generate_adjacency_list(arcfile,
+    (adj, weight, onodes, dnodes) = _generate_adjacency_list(arcfile,
                                            pnodefile, fnodefile, factor=factor)
     
     # Initialize distance table
@@ -571,7 +569,7 @@ def distance_table(arcfile, pnodefile, fnodefile, factor=10):
     
     # Fill rows of table one source at a time
     for i in tqdm.tqdm(range(len(onodes))):
-        dist[i] = _dijkstra_single(adj, weight, size, onodes[0], dnodes)
+        dist[i] = _dijkstra_single(adj, weight, onodes[i], dnodes)
     
     ### Eventually edit this to write distances to a log file as it goes.
     
@@ -668,4 +666,4 @@ santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_cla
 
 #graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time", directed=False)
 #map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile, popnbrfile=santa_clara_popfile_nbr, facnbrfile=santa_clara_facfile_nbr)
-#distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
+distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
