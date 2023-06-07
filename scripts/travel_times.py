@@ -402,7 +402,75 @@ def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
 # Shortest Path Computation
 #==============================================================================
 
-def pairwise_distances(arcfile, pnodefile, fnodefile, factor=10):
+def _dijkstra_single(adj, weight, size, s, dnodes):
+    """Carries out Dijkstra's algorithm for a single source.
+    
+    Positional arguments:
+        adj (tuple(tuple(int))) -- Tuple of tuples of out-neighbors. adj[i][j]
+            indicates the jth out-neighbor of the ith node.
+        weight (tuple(tuple(float))) -- Tuple of tuples of arc weights.
+            weight[i][j] indicates the weight of the arc from node i to the
+            jth out-neighbor of i (i.e. the weight of the arc from i to
+            adj[i][j]).
+        size (int) -- Number of nodes.
+        s (int) -- Single origin node.
+        dnodes (list(int)) -- List of destination nodes.
+    
+    Returns:
+        (list(float)) -- List of distances from the origin to all destinations,
+            respectively.
+    
+    Note that this script assumes zero-indexed consecutive node IDs, in which
+    case adjacency list positions correspond to tail node IDs.
+    """
+    
+    # Initialize distance list
+    dist = [None for i in range(size)]
+    dist[s] = 0 # origin's distance to self is zero
+    
+    # Initialize explored node set
+    explored = set([s])
+    
+    # Initialize unexplored destination set
+    udest = set(dnodes)
+    if s in udest:
+        udest.remove(s)
+    
+    # Initialize tentative distance min-priority queue (dist, node)
+    tentative = []
+    for i in range(len(adj[s])):
+        heapq.heappush(tentative, (weight[s][i], adj[s][i]))
+        dist[adj[s][i]] = weight[s][i]
+    
+    # Enter the main Dijkstra loop
+    while len(tentative) > 0 and len(udest) > 0:
+        
+        # Pick the minimum-distance tentative node
+        (udist, u) = heapq.heappop(tentative)
+        
+        # Skip if already explored
+        if u in explored:
+            continue
+        
+        # Mark as explored (and remove from destination list if needed)
+        explored.add(u)
+        if u in udest:
+            udest.remove(u)
+        
+        # Update all neighboring tentative distances
+        for i in range(len(adj[u])):
+            v = adj[u][i]
+            newdist = udist + weight[u][i]
+            if dist[v] == None or newdist < dist[v]:
+                dist[v] = newdist
+                heapq.heappush(tentative, (newdist, v))
+    
+    # Return the distances
+    return [dist[dnodes[i]] for i in range(len(dnodes))]
+
+#------------------------------------------------------------------------------
+
+def distance_table(arcfile, pnodefile, fnodefile, factor=10):
     """Computes all pairwise distances from an origin set to a destination set.
     
     Positional arguments:
@@ -419,105 +487,101 @@ def pairwise_distances(arcfile, pnodefile, fnodefile, factor=10):
             casting them as integers. Defaults to 10.
     
     Returns:
-        ### Decide on output format. Probably a list of lists.
+        (list(list(float))) -- Table of origin-to-destination pairwise
+            distances. Element [i][j] of this table is the distance from the
+            ith origin defined in pnodefile to the jth destination defined in
+            fnodefile.
     """
     
     # Generate adjacency list representation
     (adj, weight, size, onodes, dnodes) = _generate_adjacency_list(arcfile,
                                            pnodefile, fnodefile, factor=factor)
     
+    # Initialize distance table
+    dist = [[None for j in range(len(dnodes))] for i in range(len(onodes))]
+    
+    # Fill rows of table one source at a time
+    for i in tqdm.tqdm(range(len(onodes))):
+        dist[i] = _dijkstra_single(adj, weight, size, onodes[0], dnodes)
+        break
+    print(dist[0])
+    print(dist[0][0])
+    dist[0][0] /= factor
+    print(dist[0][0])
+    print("="*20)
+    
     ### Eventually edit this to write distances to a log file as it goes.
     
-    pass###
+    # Undo multiplicative factor
+    for i in range(len(onodes)):
+        for j in range(len(dnodes)):
+            print(f"{i},{j}, {dist[i][j]}")
+            dist[i][j] /= factor
+        break
+    
+    return dist
 
 #==============================================================================
-# Batch Processing Scripts
+# Main Frontend
 #==============================================================================
 
-def generate_distance_file(popfile, facfile, mapfile, distfile,
-    symmetric=False):
-    """Generates a travel time file for a batch of population/facility files.
+def distance_file(arcfile, pnodefile, fnodefile, distfile, factor=10,
+                  multiplier=float(1.0/60)):
+    """Generates a complete origin-to-destination distance file.
     
     Positional arguments:
-        popfile (str) -- Preprocessed population file path, which should
-            include the coordinates and population of each population center.
-        facfile (str) -- Preprocessed facility file path, which should include
-            the coordinates and capacity of each vaccination facility.
-        mapfile (str) -- File path to a pre-downloaded .graphml map file.
-        distfile (str) -- File path for output distance file.
+        arcfile (str) -- Path to the network's arc definition file, which
+            should contain the tail node, head node, and travel time for each
+            arc.
+        pnodefile (str) -- Path to the network's population node definition
+            file, which should contain a list of origin nodes.
+        fnodefile (str) -- Path to the network's facility node definition file,
+            which should contain a list of destination nodes.
+        distfile (str) -- Path to output distance file.
     
     Keyword arguments:
-        symmetric (bool) -- Whether to treat pairwise travel times as
-            symmetric. Defaults to False, in which case travel times are
-            computed independently in both directions. If True, the population-
-            to-facility travel time is used for both directions. This saves
-            computation time at the cost of some realism.
+        factor (float) -- Factor by which to multiply all arc weights before
+            casting them as integers during the distance computations. Defaults
+            to 10, which is appropriate for an arc file with weights that have
+            only one digit past the decimal place.
+        multiplier (float) -- Factor by which to multiply the final distance
+            values. Defaults to 1/60, which is appropriate for generating
+            travel times in minutes given arc weights in seconds.
     
-    The distance file includes a table of all population/facility pairs and
-    the (directional) pairwise distances between each pair.
+    The format of the output distance file is a TSV containing the following
+    columns:
+        pid -- Index of a population center from the population file.
+        fid -- Index of a facility from the facility file.
+        time -- Travel time from the population center to the facility.
     """
     
-    # Get population file coordinates
-    pdic = _read_popfile(popfile)[1] # population coordinate dictionary
+    # Gather population center IDs
+    pid = []
+    with open(pnodefile, 'r') as f:
+        for line in f:
+            if line[0].isdigit() == False:
+                continue
+            pid.append(line.strip().split()[0])
     
-    # Get facility file coordinates
-    fdic = _read_facfile(facfile)[1] # facility coordinate dictionary
+    # Gather facility IDs
+    fid = []
+    with open(fnodefile, 'r') as f:
+        for line in f:
+            if line[0].isdigit() == False:
+                continue
+            fid.append(line.strip().split()[0])
     
-    # Initialize dictionaries of distances
-    pfdist = dict() # population to facility distance, indexed by (p,f) tuple
-    fpdist = dict() # facility to population distance, indexed by (p,f) tuple
+    # Generate travel times
+    dist = distance_table(arcfile, pnodefile, fnodefile, factor=factor)
     
-    # Find all population-to-facility distances
-    print("Computing all population-to-facility distances.")
-    t = time.time()
-    for pid in tqdm.tqdm(pdic):
-        
-        # Find all distances from the current population center
-        dlist = [fdic[fid] for fid in fdic] # list of all facility coords
-        d = travel_time_destination_list(pdic[pid], dlist, mapfile)
-        
-        # Save distances in dictionary
-        fids = list(fdic.keys()) # list of facility IDs
-        for j in range(len(fdic)):
-            pfdist[(pid, fids[j])] = d[j]
-    
-    print(f"All pairs processed after {time.time()-t} seconds.")
-    
-    ###
-    print(pfdist)
-    print(pfdist.keys())
-    
-    # Find all facility-to-population distances
-    print("Computing all facility-to-population distances.")
-    t = time.time()
-    for fid in tqdm.tqdm(fdic):
-        
-        # Copy distances if symmetric
-        if symmetric == True:
-            pids = list(pdic.keys()) # list of population IDs
-            for j in range(len(pdic)):
-                fpdist[(pids[j], fid)] = pfdist[(pids[j], fid)]
-            continue
-        
-        # Find all distances from the current facility
-        dlist = [pdic[pid] for pid in pdic] # list of all population coords
-        d = travel_time_destination_list(fdic[fid], dlist, mapfile)
-        
-        # Save distances in dictionary
-        pids = list(pdic.keys()) # list of population IDs
-        for j in range(len(pdic)):
-            fpdist[(pids[j], fid)] = d[j]
-    
-    ###
-    print(fpdist)
-    print(fpdist.keys())
-    
-    # Write dictionary contents to distance file
+    # Write distance file
     with open(distfile, 'w') as f:
-        f.write(DIST_HEADER)
-        for pair in pfdist:
-            f.write(str(pair[0]) + "\t" + str(pair[1]) + "\t" +
-                str(pfdist[pair]) + "\t" + str(fpdist[pair]) + "\t\n")
+        f.write("pid\tfid\ttime\n")
+        for i in range(len(pid)):
+            for j in range(len(fid)):
+                # Apply multiplicative factor to distance
+                d = multiplier*dist[i][j]
+                f.write(str(pid[i]) + "\t" + str(fid[j]) + "\t" + str(d) + "\n")
 
 #==============================================================================
 # Execution
@@ -532,12 +596,13 @@ santa_clara_popfile = os.path.join("..", "processed", "santa_clara", "santa_clar
 santa_clara_facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
 santa_clara_pnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_popnodes.tsv")
 santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_facnodes.tsv")
+santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
 #santa_clara_places = [{"county": c, "state": "California"} for c in SANTA_CLARA_NEIGHBORS] + [{"county": "Santa Clara", "state": "California"}]
 
 # Download: 501.8285789489746 seconds
 # Edge speeds: 34.205276012420654 seconds
-#download_map_places(, santa_clara_places)
+#download_map_places(santa_clara_mapfile, santa_clara_places)
 
 #graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time")
 #map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile)
-pairwise_distances(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, factor=10)
+distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
