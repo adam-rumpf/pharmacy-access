@@ -810,7 +810,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     index = pharmacy_to_facility(fac_file, facfile)
     
     # Generate facility neighbor file
-    pharmacy_to_facility(fac_nbr_file, nbrfacfile, offset=index+1)
+    pharmacy_to_facility(fac_nbr_file, nbrfacfile, offset=index)
 
 #==============================================================================
 # Execution
