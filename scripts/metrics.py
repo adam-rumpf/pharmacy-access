@@ -332,7 +332,63 @@ def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
     writing the results directly to a file.
     """
     
-    ###
+    # Read population file
+    (pop, pcoord) = _read_popfile(popfile)
+    pkeys = list(pop.keys()) # store main population keys
+    
+    # If a neighboring population file is provided, merge its contents
+    if popnbrfile != None:
+        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
+        pop = {**pop, **popnbr}
+        pcoord = {**pcoord, **pcoordnbr}
+        del popnbr
+        del pcoordnbr
+    
+    # Read facility file
+    (cap, fcoord) = _read_facfile(facfile)
+    fkeys = list(cap.keys()) # store main facility keys
+    
+    # If a neighboring facility file is provided, merge its contents
+    if facnbrfile != None:
+        (capnbr, fcoordnbr) = _read_popfile(facnbrfile)
+        cap = {**cap, **capnbr}
+        fcoord = {**fcoord, **fcoordnbr}
+        del capnbr
+        del fcoordnbr
+    
+    # Read distance file
+    dist = dict() # distance dict indexed by (origin, destination) ID pairs
+    with open(distfile, 'r') as f:
+        for line in f:
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            dist[(int(s[0]), int(s[1]))] = float(s[2])
+    
+    # Compute the facility crowdedness metrics
+    fmet = dict() # facility crowdedness metrics by facfile index
+    if crowding == True:
+        print("Computing facility crowdedness metrics using geodesic distance.")
+        for j in tqdm.tqdm(cap):
+            fmet[j] = 0.0
+            for k in pop:
+                d = max(dist[(k,j)], floor) # travel time (min) bounded by floor
+                fmet[j] += pop[k]*(d**(-beta))
+    else:
+        for j in cap:
+            fmet[j] = 1.0
+    
+    # Compute the population accessibility metrics
+    pmet = dict() # population accessibility metrics by popfile index
+    print("Computing population accessibility metrics using geodesic distance.")
+    for i in tqdm.tqdm(pop):
+        pmet[i] = 0.0
+        for j in cap:
+            d = max(dist[(i,j)], floor) # travel time (min) bounded by floor
+            pmet[i] += (cap[j]*(d**(-beta)))/fmet[j]
+    
+    # Return facility and population metric dictionaries (original indices only)
+    return ({k: fmet[k] for k in fkeys}, {k: pmet[k] for k in pkeys})
     
     # Return facility and population metric dictionaries
     return (None, None)
@@ -512,10 +568,71 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
     writing the results directly to a file.
     """
     
-    ###
+    # Read population file
+    (pop, pcoord) = _read_popfile(popfile)
+    pkeys = list(pop.keys()) # store main population keys
     
-    # Return facility and population metric dictionaries
-    return (None, None)
+    # If a neighboring population file is provided, merge its contents
+    if popnbrfile != None:
+        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
+        pop = {**pop, **popnbr}
+        pcoord = {**pcoord, **pcoordnbr}
+        del popnbr
+        del pcoordnbr
+    
+    # Read facility file
+    (cap, fcoord) = _read_facfile(facfile)
+    fkeys = list(cap.keys()) # store main facility keys
+    
+    # If a neighboring facility file is provided, merge its contents
+    if facnbrfile != None:
+        (capnbr, fcoordnbr) = _read_popfile(facnbrfile)
+        cap = {**cap, **capnbr}
+        fcoord = {**fcoord, **fcoordnbr}
+        del capnbr
+        del fcoordnbr
+    
+    # Read distance file
+    dist = dict() # distance dict indexed by (origin, destination) ID pairs
+    with open(distfile, 'r') as f:
+        for line in f:
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            dist[(int(s[0]), int(s[1]))] = float(s[2])
+    
+    # Compute the facility crowdedness metrics
+    fmet = dict() # facility crowdedness metrics by facfile index
+    if crowding == True:
+        print("Computing facility crowdedness metrics using geodesic distance.")
+        for j in tqdm.tqdm(cap):
+            p = 0 # total population in range
+            for k in pop:
+                d = dist[(k,j)] # travel time (min)
+                if d <= cutoff:
+                    p += pop[k]
+            if p > 0:
+                fmet[j] = cap[j]/p
+            else:
+                fmet[j] = -1
+    else:
+        for j in cap:
+            fmet[j] = cap[j]
+    
+    # Compute the population accessibility metrics
+    pmet = dict() # population accessibility metrics by popfile index
+    print("Computing population accessibility metrics using geodesic distance.")
+    for i in tqdm.tqdm(pop):
+        pmet[i] = 0.0
+        for j in cap:
+            if fmet[j] < 0:
+                continue
+            d = dist[(i,j)] # travel time (min)
+            if d <= cutoff:
+                pmet[i] += fmet[j]
+    
+    # Return facility and population metric dictionaries (original indices only)
+    return ({k: fmet[k] for k in fkeys}, {k: pmet[k] for k in pkeys})
 
 #==============================================================================
 # Execution
@@ -537,27 +654,18 @@ popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
 popnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
 facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
 facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
+distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_tt.tsv")
+gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_noedge.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_noedge.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=None, facnbrfile=None, crowding=True)
-
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_nocrowding.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_nocrowding.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
-
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
-
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_noedge.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_noedge.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True)
-
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_nocrowding.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_nocrowding.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_tt.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
