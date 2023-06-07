@@ -5,6 +5,7 @@ test/
 
 # Data files
 data/*/*
+graphs/*/*
 maps/*/*
 processed/*/*
 results/*/*

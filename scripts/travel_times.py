@@ -5,8 +5,10 @@ preprocessed data files, notably including origin/destination travel time
 matrices.
 """
 
+import heapq
 import os.path
 import time
+import xml.etree.ElementTree as ET
 
 import osmnx as ox
 import tqdm
@@ -26,29 +28,26 @@ POP_LAT = 2 # population latitude
 POP_LON = 3 # population longitude
 POP_POP = 4 # population total population value
 
-# Location boundaries (large enough to include neighboring counties)
-SANTA_CLARA_N = 38.428
-SANTA_CLARA_S = 35.791
-SANTA_CLARA_E = -120.045
-SANTA_CLARA_W = -123.162
+# Counties neighboring Santa Clara
+SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
+                         "San Francisco", "San Joaquin", "San Mateo",
+                         "Santa Cruz", "Stanislaus"]
 
 #==============================================================================
-# Common Functions
+# Data Gathering and Conversion
 #==============================================================================
 
-def download_map_box(outfile, north, south, east, west):
-    """Downloads and saves OpenStreetMap data for a rectangular region.
+def download_map_places(outfile, places):
+    """Downloads and saves OpenStreetMap data for a list of counties.
     
     Positional arguments:
         outfile (str) -- Output file path.
-        north (float) -- Northern latitude bound.
-        south (float) -- Southern latitude bound.
-        east (float) -- Eastern longitude bound.
-        west (float) -- Western longitude bound.
+        places (list(dict)) -- List of dictionaries containing county queries.
+            Each such query should be a dictionary of the form:
+            {"county": "COUNTYNAME", "state": "STATENAME"}
     
-    This function downloads and saves a map of a given bounding box as a
-    .graphml file. The map is downloaded using OpenStreetMap driving network
-    data.
+    This function downloads and saves a map as.graphml file. The map is
+    downloaded using OpenStreetMap driving network data.
     """
     
     # Verify that the output file has the .graphml extension
@@ -58,7 +57,7 @@ def download_map_box(outfile, north, south, east, west):
     # Download the map
     print("Downloading map data.")
     t = time.time()
-    G = ox.graph.graph_from_bbox(north, south, east, west, network_type="drive")
+    G = ox.graph.graph_from_place(places, network_type="drive")
     print(f"Map downloaded after {time.time()-t} seconds.")
     
     # Impute missing edge speeds then calculate edge travel times
@@ -71,47 +70,6 @@ def download_map_box(outfile, north, south, east, west):
     # Save the map
     ox.save_graphml(G, outfile)
     print("Map successfully saved as " + str(outfile))
-
-#------------------------------------------------------------------------------
-
-def _temporary_map(orig, dest, buffer=0.15):
-    """Download OpenStreetMap data for a rectangular region without saving.
-    
-    Positional arguments:
-        orig (tuple(float)) -- Origin latitude/longitude tuple.
-        dest (tuple(float)) -- Destination latitude/longitude tuple.
-    
-    Keyword arguments:
-        buffer (float) -- Fractional buffer to apply the boundaries of the
-            bounding box. Defaults to 0.15, which indicates that the bounding
-            box will be 15% larger than the smallest box containing the given
-            origin and destination.
-    
-    Returns:
-        (ox.graph) -- The graph corresponding to the selected bounding box,
-            plus a given buffer.
-    """
-    
-    # Find the origin/destination bounding box
-    north = max(orig[1], dest[1])
-    south = min(orig[1], dest[1])
-    east = max(orig[0], dest[0])
-    west = min(orig[0], dest[0])
-    dim = max(north - south, east - west)
-    north += buffer*dim
-    south -= buffer*dim
-    east += buffer*dim
-    west -= buffer*dim
-    
-    # Generate graph from bounding box
-    G = ox.graph.graph_from_bbox(north, south, east, west, network_type="drive")
-    
-    # Impute missing edge speeds then calculate edge travel times
-    G = ox.add_edge_speeds(G) # kph
-    G = ox.add_edge_travel_times(G)
-    
-    # Return the graph
-    return G
 
 #------------------------------------------------------------------------------
 
@@ -190,207 +148,486 @@ def _read_facfile(facfile):
     
     return (cap, coord)
 
-#==============================================================================
-# Travel Time Computation Scripts
-#==============================================================================
+#------------------------------------------------------------------------------
 
-def travel_time(orig, dest, mapfile=None):
-    """Computes the travel time between a given pair of coordinates.
+def graphml_to_tsv(mapfile, arcfile, weight="travel_time", directed=True):
+    """Converts a .graphml map into a simplified pure graph file.
     
     Positional arguments:
-        orig (tuple(float)) -- Origin latitude/longitude tuple.
-        dest (tuple(float)) -- Destination latitude/longitude tuple.
+        mapfile (str) -- Path to input .graphml file.
+        arcfile (str) -- Path to output arc data file.
     
     Keyword arguments:
-        mapfile (str) -- File path to a pre-downloaded .graphml map file.
-            Defaults to None, in which case new map data is downloaded and
-            immediately discarded. The downloaded data consists of the bounding
-            box defined by the origin and destination coordinates, plus a 15%
-            buffer.
+        weight (str) -- Edge attribute to use for defining arc weights.
+            Defaults to "travel_time".
+        directed (bool) -- Whether to treat the network as directed. Defaults
+            to True, in which case the one-way designation of roads is taken
+            into account. If False, all roads are taken as two-way.
     
-    Returns:
-        (float) -- Travel time (minutes).
+    The output graph file simply defines arc-level data since there we have no
+    need for node-level data. The arc file includes the following tab-separated
+    columns, in order:
+        tail -- Node index of arc's tail (origin).
+        head -- Node index of arc's head (destination).
+        weight -- Numerical weight to use in computing distances.
+    
+    The node indices in the output file correspond to those used in the
+    original .graphml file.
+    
+    Two-way roads are handled by duplicating every arc in the output file with
+    its head and tail reversed.
     """
     
-    # Open specified map file
-    if mapfile != None:
+    # Define default .graphml namespace
+    namespace = "{http://graphml.graphdrawing.org/xmlns}"
+    
+    # Read .graphml file as an XML element tree
+    tree = ET.parse(mapfile)
+    root = tree.getroot()
+    
+    # Find the ID number of the given weight attribute
+    wid = None
+    for child in root.findall(namespace + "key"):
+        if (child.get("for") == "edge") and (child.get("attr.name") == weight):
+            wid = child.get("id")
+            break
+    
+    # Report an error if the weight field was not found
+    if wid == None:
+        ValueError("weight field '" + weight + "' not found in graphml file")
+    
+    # Find the ID number of the "oneway" attribute
+    oneid = None
+    for child in root.findall(namespace + "key"):
+        if (child.get("for") == "edge") and (child.get("attr.name") == "oneway"):
+            oneid = child.get("id")
+            break
+    
+    # Initialize edge weight dictionary, indexed by (tail, head) pair
+    edges = dict()
+    
+    # Find the "graph" tag
+    for child in root:
+        if child.tag != namespace + "graph":
+            continue
         
-        # Verify file extension
-        if os.path.splitext(mapfile)[1] != ".graphml":
-            raise ValueError("output file must have the '.graphml' extension")
+        # Go through each edge one-at-a-time
+        for e in tqdm.tqdm(child.findall(namespace + "edge")):
+            
+            # Get endpoints
+            tail = e.attrib["source"]
+            head = e.attrib["target"]
+            
+            # Initialize edge weight and one-way status
+            wt = 0.0
+            oneway = False
+            
+            # Read fields
+            for f in e:
+                if f.attrib["key"] == wid:
+                    wt = f.text
+                if (directed == True and f.attrib["key"] == oneid and
+                    f.text == "True"):
+                    oneway = True
+            
+            # If the edge is new, create a new dictionary entry
+            if (tail, head) not in edges:
+                edges[(tail, head)] = wt
+            else:
+                # Otherwise update the weight if smaller
+                if wt < edges[(tail, head)]:
+                    edges[(tail, head)] = wt
+            
+            # If the edge is not one-way, repeat the process for its reverse
+            if oneway == False:
+                if (head, tail) not in edges:
+                    edges[(head, tail)] = wt
+                else:
+                    if wt < edges[(head, tail)]:
+                        edges[(head, tail)] = wt
+    
+    # Write output file
+    with open(arcfile, 'w') as f:
         
-        # Generate graph from file
-        G = ox.load_graphml(mapfile)
-    
-    else:
+        # Write header
+        f.write("tail\thead\tweight\n")
         
-        # If no map file exists, generate the graph from scratch
-        G = _temporary_map(orig, dest)
-    
-    # Get nodes nearest to origin and destination coordinates
-    onode = ox.distance.nearest_nodes(G, orig[1], orig[0])
-    dnode = ox.distance.nearest_nodes(G, dest[1], dest[0])
-    
-    # Find the shortest path by travel time
-    route = ox.distance.shortest_path(G, onode, dnode, weight="travel_time")
-    
-    # Get all edge times
-    edge_times = ox.utils_graph.get_route_edge_attributes(G, route,
-                                                          "travel_time")
-    
-    # Return the total edge times, converted to minutes
-    return sum(edge_times)/60.0
+        # Write array contents to file
+        for pair in edges:
+            f.write(str(pair[0]) + "\t" + str(pair[1]) + "\t" +
+                    str(edges[pair]) + "\n")
 
 #------------------------------------------------------------------------------
 
-def travel_time_destination_list(orig, dlist, mapfile=None):
-    """Computes the travel times from one origin to a list of destinations.
+def map_node_locations(mapfile, popfile, pnodefile, facfile, fnodefile):
+    """Finds the nodes that correspond to population and facility locations.
     
     Positional arguments:
-        orig (tuple(float)) -- Origin latitude/longitude tuple.
-        dlist (list(tuple(float))) -- List of destination latitude/longitude
-            tuples.
+        mapfile (str) -- Path to input .graphml file.
+        popfile (str) -- Path to preprocessed population file.
+        pnodefile (str) -- Path to population node output file.
+        facfile (str) -- Path to preprocessed facility file.
+        fnodefile (str) -- Path to facility node output file.
+    
+    Each population center is snapped to its nearest node in the .graphml file
+    based on the geographic coordinates in the popfile. The output pnodefile
+    is a tab-separated file containing the following columns:
+        id -- Population center index from the population file.
+        node -- Corresponding node index from the .graphml file.
+    
+    The facfile and fnodefile arguments are analogous, but are for mapping
+    facilities to their nearest nodes.
+    """
+    
+    # Open graph file
+    G = ox.load_graphml(mapfile)
+    
+    # Get population center coordinates
+    (_, pcoord) = _read_popfile(popfile)
+    pid = list(pcoord) # get population center IDs
+    
+    # Find nodes nearest each population center
+    print("Mapping population nodes.")
+    pnodes = ox.distance.nearest_nodes(G, [pcoord[i][1] for i in pid],
+                                          [pcoord[i][0] for i in pid])
+    
+    # Write output file
+    with open(pnodefile, 'w') as f:
+        f.write("id\tnode\n")
+        for i in range(len(pid)):
+            f.write(str(pid[i]) + "\t" + str(pnodes[i]) + "\n")
+    
+    del pid
+    del pcoord
+    
+    # Get facility coordinates
+    (_, fcoord) = _read_facfile(facfile)
+    fid = list(fcoord) # get facility IDs
+    
+    # Find nodes nearest each facility
+    print("Mapping facilities.")
+    fnodes = ox.distance.nearest_nodes(G, [fcoord[i][1] for i in fid],
+                                          [fcoord[i][0] for i in fid])
+    
+    # Write output file
+    with open(fnodefile, 'w') as f:
+        f.write("id\tnode\n")
+        for i in range(len(fid)):
+            f.write(str(fid[i]) + "\t" + str(fnodes[i]) + "\n")
+    
+    del fid
+    del fcoord
+
+#------------------------------------------------------------------------------
+
+def _generate_adjacency_list(arcfile, pnodefile, fnodefile, factor=10):
+    """Generates an adjacency list representation of a graph and its O/D nodes.
+    
+    Positional arguments:
+        arcfile (str) -- Path to the network's arc definition file, which
+            should contain the tail node, head node, and travel time for each
+            arc.
+        pnodefile (str) -- Path to the network's population node definition
+            file, which should contain a list of origin nodes.
+        fnodefile (str) -- Path to the network's facility node definition file,
+            which should contain a list of destination nodes.
     
     Keyword arguments:
-        mapfile (str) -- File path to a pre-downloaded .graphml map file.
-            Defaults to None, in which case new map data is downloaded and
-            immediately discarded. The downloaded data consists of the bounding
-            box defined by the origin and destination coordinates, plus a 15%
-            buffer.
+        factor (float) -- Factor by which to multiply all arc weights before
+            casting them as integers. Defaults to 10.
     
     Returns:
-        (list(float)) -- List of travel times from the single origin to all
-            destinations in the list.
+        adj (tuple(tuple(int))) -- Tuple of tuples of out-neighbors. adj[i][j]
+            indicates the jth out-neighbor of the ith node.
+        weight (tuple(tuple(int))) -- Tuple of tuples of arc weights.
+            weight[i][j] indicates the weight of the arc from node i to the
+            jth out-neighbor of i (i.e. the weight of the arc from i to
+            adj[i][j]).
+        size (int) -- Number of nodes.
+        onodes (list(int)) -- List of origin node indices.
+        dnodes (list(int)) -- List of destination node indices.
+    
+    This function generates an adjacency list representation of a graph defined
+    in an arc data file. It also performs a few preprocessing tasks to
+    simplify the shortest path generation process, including relabeling the
+    nodes and altering the arc weights.
+    
+    More specifically, the node indices in the arc file are arbitrary positive
+    integers from the original .graphml file. This script begins by relabeling
+    the indices to become a list of zero-indexed consecutive integers (0, 1, 2,
+    ...) so that the node indices can be used as list positions. The relabeling
+    simply associates each node ID with its position in the sorted node ID
+    list. The same relabeling is performed on the origin and destination node
+    lists, which is why the two relabeled lists are returned.
+    
+    The arc weights are expected to be float values from the original .graphml
+    file. This script multiplies all weights by a given factor and then casts
+    them as integers in order to speed up the shortest path computations. Any
+    resulting path lengths should be divided by this same multiplicative
+    factor.
     """
     
-    # Open specified map file
-    if mapfile != None:
-        
-        # Verify file extension
-        if os.path.splitext(mapfile)[1] != ".graphml":
-            raise ValueError("output file must have the '.graphml' extension")
-        
-        # Generate graph from file
-        G = ox.load_graphml(mapfile)
+    # Find all unique node labels
+    labelset = set() # set of all unique node labels used
+    with open(arcfile, 'r') as f:
+        # Read all unique labels from arc file
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            labelset.add(int(s[0]))
+            labelset.add(int(s[1]))
     
-    else:
-        
-        # If no map file exists, generate the graph from scratch
-        G = _temporary_map(orig, dest)
+    # Sort the node label list and use to generate a position map
+    size = len(labelset) # number of nodes
+    labels = list(labelset)
+    del labelset
+    labels.sort()
+    position = {labels[i]: i for i in range(len(labels))} # relabeling map
+    del labels
     
-    # Get size of destination list
-    n = len(dlist)
+    # Relabel origin nodes
+    onodes = [] # origin node list
+    with open(pnodefile, 'r') as f:
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            onodes.append(position[int(s[1])])
     
-    # Generate lists of origin and destination nodes (origin list is constant)
-    onodes = [ox.distance.nearest_nodes(G, orig[1], orig[0]) for i in range(n)]
-    dnodes = [ox.distance.nearest_nodes(G, dlist[i][1], dlist[i][0])
-              for i in range(n)]
+    # Relabel destination nodes
+    dnodes = [] # destination node list
+    with open(fnodefile, 'r') as f:
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            dnodes.append(position[int(s[1])])
     
-    # Find all shortest path routes
-    routes = ox.distance.shortest_path(G, onodes, dnodes, weight="travel_time",
-                                       cpus=None)
+    # Build adjacency list and gather weights from arc file
+    adj = [[] for i in range(size)] # adjacency table
+    weight = [[] for i in range(size)] # weight table
+    with open(arcfile, 'r') as f:
+        for line in f:
+            # Skip comment line
+            if line[0].isdigit() == False:
+                continue
+            s = line.strip().split()
+            # Remap endpoints
+            tail = position[int(s[0])]
+            head = position[int(s[1])]
+            # Multiply weight and cast as integer
+            wt = int(factor*float(s[2]))
+            # Add data to adjacency and weight lists
+            adj[tail].append(head)
+            weight[tail].append(wt)
     
-    # Return a list of all pairwise travel times
-    return [sum(ox.utils_graph.get_route_edge_attributes(G, routes[i],
-            "travel_time"))/60.0 for i in range(n)]
+    # Recursively convert lists to tuples
+    adj = tuple(tuple(adj[i]) for i in range(len(adj)))
+    weight = tuple(tuple(weight[i]) for i in range(len(weight)))
+    
+    return (adj, weight, size, onodes, dnodes)
 
 #==============================================================================
-# Batch Processing Scripts
+# Shortest Path Computation
 #==============================================================================
 
-def generate_distance_file(popfile, facfile, mapfile, distfile,
-    symmetric=False):
-    """Generates a travel time file for a batch of population/facility files.
+def _dijkstra_single(adj, weight, size, s, dnodes):
+    """Carries out Dijkstra's algorithm for a single source.
     
     Positional arguments:
-        popfile (str) -- Preprocessed population file path, which should
-            include the coordinates and population of each population center.
-        facfile (str) -- Preprocessed facility file path, which should include
-            the coordinates and capacity of each vaccination facility.
-        mapfile (str) -- File path to a pre-downloaded .graphml map file.
-        distfile (str) -- File path for output distance file.
+        adj (tuple(tuple(int))) -- Tuple of tuples of out-neighbors. adj[i][j]
+            indicates the jth out-neighbor of the ith node.
+        weight (tuple(tuple(float))) -- Tuple of tuples of arc weights.
+            weight[i][j] indicates the weight of the arc from node i to the
+            jth out-neighbor of i (i.e. the weight of the arc from i to
+            adj[i][j]).
+        size (int) -- Number of nodes.
+        s (int) -- Single origin node.
+        dnodes (list(int)) -- List of destination nodes.
     
-    Keyword arguments:
-        symmetric (bool) -- Whether to treat pairwise travel times as
-            symmetric. Defaults to False, in which case travel times are
-            computed independently in both directions. If True, the population-
-            to-facility travel time is used for both directions. This saves
-            computation time at the cost of some realism.
+    Returns:
+        (list(float)) -- List of distances from the origin to all destinations,
+            respectively.
     
-    The distance file includes a table of all population/facility pairs and
-    the (directional) pairwise distances between each pair.
+    Note that this script assumes zero-indexed consecutive node IDs, in which
+    case adjacency list positions correspond to tail node IDs.
     """
     
-    # Get population file coordinates
-    pdic = _read_popfile(popfile)[1] # population coordinate dictionary
+    # Initialize distance list
+    dist = [None for i in range(size)]
+    dist[s] = 0 # origin's distance to self is zero
     
-    # Get facility file coordinates
-    fdic = _read_facfile(facfile)[1] # facility coordinate dictionary
+    # Initialize explored node set
+    explored = set([s])
     
-    # Initialize dictionaries of distances
-    pfdist = dict() # population to facility distance, indexed by (p,f) tuple
-    fpdist = dict() # facility to population distance, indexed by (p,f) tuple
+    # Initialize unexplored destination set
+    udest = set(dnodes)
+    if s in udest:
+        udest.remove(s)
     
-    # Find all population-to-facility distances
-    print("Computing all population-to-facility distances.")
-    t = time.time()
-    for pid in tqdm.tqdm(pdic):
+    # Initialize tentative distance min-priority queue (dist, node)
+    tentative = []
+    for i in range(len(adj[s])):
+        heapq.heappush(tentative, (weight[s][i], adj[s][i]))
+        dist[adj[s][i]] = weight[s][i]
+    
+    # Enter the main Dijkstra loop
+    while len(tentative) > 0 and len(udest) > 0:
         
-        # Find all distances from the current population center
-        dlist = [fdic[fid] for fid in fdic] # list of all facility coords
-        d = travel_time_destination_list(pdic[pid], dlist, mapfile)
+        # Pick the minimum-distance tentative node
+        (udist, u) = heapq.heappop(tentative)
         
-        # Save distances in dictionary
-        fids = list(fdic.keys()) # list of facility IDs
-        for j in range(len(fdic)):
-            pfdist[(pid, fids[j])] = d[j]
-    
-    print(f"All pairs processed after {time.time()-t} seconds.")
-    
-    ###
-    print(pfdist)
-    print(pfdist.keys())
-    
-    # Find all facility-to-population distances
-    print("Computing all facility-to-population distances.")
-    t = time.time()
-    for fid in tqdm.tqdm(fdic):
-        
-        # Copy distances if symmetric
-        if symmetric == True:
-            pids = list(pdic.keys()) # list of population IDs
-            for j in range(len(pdic)):
-                fpdist[(pids[j], fid)] = pfdist[(pids[j], fid)]
+        # Skip if already explored
+        if u in explored:
             continue
         
-        # Find all distances from the current facility
-        dlist = [pdic[pid] for pid in pdic] # list of all population coords
-        d = travel_time_destination_list(fdic[fid], dlist, mapfile)
+        # Mark as explored (and remove from destination list if needed)
+        explored.add(u)
+        if u in udest:
+            udest.remove(u)
         
-        # Save distances in dictionary
-        pids = list(pdic.keys()) # list of population IDs
-        for j in range(len(pdic)):
-            fpdist[(pids[j], fid)] = d[j]
+        # Update all neighboring tentative distances
+        for i in range(len(adj[u])):
+            v = adj[u][i]
+            newdist = udist + weight[u][i]
+            if dist[v] == None or newdist < dist[v]:
+                dist[v] = newdist
+                heapq.heappush(tentative, (newdist, v))
     
-    ###
-    print(fpdist)
-    print(fpdist.keys())
+    # Return the distances
+    return [dist[dnodes[i]] for i in range(len(dnodes))]
+
+#------------------------------------------------------------------------------
+
+def distance_table(arcfile, pnodefile, fnodefile, factor=10):
+    """Computes all pairwise distances from an origin set to a destination set.
     
-    # Write dictionary contents to distance file
+    Positional arguments:
+        arcfile (str) -- Path to the network's arc definition file, which
+            should contain the tail node, head node, and travel time for each
+            arc.
+        pnodefile (str) -- Path to the network's population node definition
+            file, which should contain a list of origin nodes.
+        fnodefile (str) -- Path to the network's facility node definition file,
+            which should contain a list of destination nodes.
+    
+    Keyword arguments:
+        factor (float) -- Factor by which to multiply all arc weights before
+            casting them as integers. Defaults to 10.
+    
+    Returns:
+        (list(list(float))) -- Table of origin-to-destination pairwise
+            distances. Element [i][j] of this table is the distance from the
+            ith origin defined in pnodefile to the jth destination defined in
+            fnodefile.
+    """
+    
+    # Generate adjacency list representation
+    (adj, weight, size, onodes, dnodes) = _generate_adjacency_list(arcfile,
+                                           pnodefile, fnodefile, factor=factor)
+    
+    # Initialize distance table
+    dist = [[None for j in range(len(dnodes))] for i in range(len(onodes))]
+    
+    # Fill rows of table one source at a time
+    for i in tqdm.tqdm(range(len(onodes))):
+        dist[i] = _dijkstra_single(adj, weight, size, onodes[0], dnodes)
+    
+    ### Eventually edit this to write distances to a log file as it goes.
+    
+    # Undo multiplicative factor
+    for i in range(len(onodes)):
+        for j in range(len(dnodes)):
+            dist[i][j] /= factor
+    
+    return dist
+
+#==============================================================================
+# Main Frontend
+#==============================================================================
+
+def distance_file(arcfile, pnodefile, fnodefile, distfile, factor=10,
+                  multiplier=float(1.0/60)):
+    """Generates a complete origin-to-destination distance file.
+    
+    Positional arguments:
+        arcfile (str) -- Path to the network's arc definition file, which
+            should contain the tail node, head node, and travel time for each
+            arc.
+        pnodefile (str) -- Path to the network's population node definition
+            file, which should contain a list of origin nodes.
+        fnodefile (str) -- Path to the network's facility node definition file,
+            which should contain a list of destination nodes.
+        distfile (str) -- Path to output distance file.
+    
+    Keyword arguments:
+        factor (float) -- Factor by which to multiply all arc weights before
+            casting them as integers during the distance computations. Defaults
+            to 10, which is appropriate for an arc file with weights that have
+            only one digit past the decimal place.
+        multiplier (float) -- Factor by which to multiply the final distance
+            values. Defaults to 1/60, which is appropriate for generating
+            travel times in minutes given arc weights in seconds.
+    
+    The format of the output distance file is a TSV containing the following
+    columns:
+        pid -- Index of a population center from the population file.
+        fid -- Index of a facility from the facility file.
+        time -- Travel time from the population center to the facility.
+    """
+    
+    # Gather population center IDs
+    pid = []
+    with open(pnodefile, 'r') as f:
+        for line in f:
+            if line[0].isdigit() == False:
+                continue
+            pid.append(line.strip().split()[0])
+    
+    # Gather facility IDs
+    fid = []
+    with open(fnodefile, 'r') as f:
+        for line in f:
+            if line[0].isdigit() == False:
+                continue
+            fid.append(line.strip().split()[0])
+    
+    # Generate travel times
+    dist = distance_table(arcfile, pnodefile, fnodefile, factor=factor)
+    
+    # Write distance file
     with open(distfile, 'w') as f:
-        f.write(DIST_HEADER)
-        for pair in pfdist:
-            f.write(str(pair[0]) + "\t" + str(pair[1]) + "\t" +
-                str(pfdist[pair]) + "\t" + str(fpdist[pair]) + "\t\n")
+        f.write("pid\tfid\ttime\n")
+        for i in range(len(pid)):
+            for j in range(len(fid)):
+                # Apply multiplicative factor to distance
+                d = multiplier*dist[i][j]
+                f.write(str(pid[i]) + "\t" + str(fid[j]) + "\t" + str(d) + "\n")
 
 #==============================================================================
 # Execution
 #==============================================================================
 
 # Comment or uncomment the function calls below to process each location.
-#download_map_box(os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml"), 37.4323, 37.1986, -121.7395, -122.0924)
-#print(travel_time((37.4, -122.0), (37.2, -121.7), os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml")))
-#print(travel_time_destination_list((37.4, -122.0), [(37.2, -121.7), (37.4, -121.7)], os.path.join("..", "maps", "santa_clara", "santa_clara_driving_small.graphml")))
-#download_map_box(os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), SANTA_CLARA_N, SANTA_CLARA_S, SANTA_CLARA_E, SANTA_CLARA_W)
-#print(travel_time((37.4, -122.0), (37.2, -121.7), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml")))
-generate_distance_file(os.path.join("..", "processed", "santa_clara", "santa_clara_pop_small.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac_small.tsv"), os.path.join("..", "maps", "santa_clara", "santa_clara_driving.graphml"), os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv"))
+
+# Generate Santa Clara place list
+santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_map.graphml")
+santa_clara_arcfile = os.path.join("..", "graphs", "santa_clara", "santa_clara_arcs.tsv")
+santa_clara_popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
+santa_clara_facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
+santa_clara_pnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_popnodes.tsv")
+santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_facnodes.tsv")
+santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
+#santa_clara_places = [{"county": c, "state": "California"} for c in SANTA_CLARA_NEIGHBORS] + [{"county": "Santa Clara", "state": "California"}]
+
+# Download: 501.8285789489746 seconds
+# Edge speeds: 34.205276012420654 seconds
+#download_map_places(santa_clara_mapfile, santa_clara_places)
+
+#graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time", directed=False)
+#map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile)
+distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)

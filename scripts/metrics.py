@@ -383,7 +383,7 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     crowdedness metrics for all facilities within the community's catchment
     area
         
-        A_i = sum_{k:d_ij<=d_0} R_j
+        A_i = sum_{j:d_ij<=d_0} R_j
     
     where A_i is the metric of population center i and the remaining notation
     is the same as above. The metric is called "two-step" because of how R_j

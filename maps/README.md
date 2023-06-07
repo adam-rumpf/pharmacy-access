@@ -4,4 +4,4 @@ This subdirectory includes raw map files downloaded for use in travel time compu
 
 ## Files
 
-* `santa_clara.graphml`: Santa Clara and surrounding areas. Downloaded May 16, 2023.
+* `santa_clara_map.graphml`: Santa Clara and surrounding areas. Downloaded June 5, 2023.
