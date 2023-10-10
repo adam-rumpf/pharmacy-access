@@ -24,7 +24,7 @@ import tqdm
 #==============================================================================
 
 # Population center file header (including column labels)
-POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\turban\n"
+POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\turban\tpov150\tnoveh\n"
 
 # Shorter population center file header (for neighbor files)
 POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\n"
@@ -695,7 +695,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     neighbors = SANTA_CLARA_NEIGHBORS
     
     # Gather population data from census file (leaving room for extra fields)
-    pdic = county_tract_info("Santa Clara", census_file, append=[-1]*4)
+    pdic = county_tract_info("Santa Clara", census_file, append=[-1]*6)
     
     # Gather vaccination rates
     with open(vacc_file, 'r') as f:
@@ -757,12 +757,18 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             if adi[fips][1] > 0:
                 pdic[fips][4] = adi[fips][0]/adi[fips][1]
     
-    # Gather SVI rankings
+    # Gather SVI fields
     santa_clara_fips = list(pdic.keys())[0][:5] # county's FIPS prefix
-    svi = county_svi(santa_clara_fips, fields=["RPL_THEMES"]) # SVI dictionary
+    fields = ["RPL_THEMES", "EP_POV150", "EP_NOVEH"] # field names to gather
+    fieldids = [5, 7, 8] # corresponding columns in final table
+    fieldpercent = [7, 8] # fields to be converted from [0,100] to [0.0,1.0]
+    svi = county_svi(santa_clara_fips, fields=fields) # SVI dictionary
     for fips in pdic:
         if fips in svi:
-            pdic[fips][5] = svi[fips][0]
+            for i in range(len(svi[fips])):
+                pdic[fips][fieldids[i]] = svi[fips][i]
+                if fieldids[i] in fieldpercent:
+                    pdic[fips][fieldids[i]] /= 100.0
     
     del svi
     
@@ -833,4 +839,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
 
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_new.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
+#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
