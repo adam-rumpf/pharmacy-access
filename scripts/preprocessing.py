@@ -24,7 +24,7 @@ import tqdm
 #==============================================================================
 
 # Population center file header (including column labels)
-POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\n"
+POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\turban\n"
 
 # Shorter population center file header (for neighbor files)
 POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\n"
@@ -689,12 +689,13 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     census_file = os.path.join("..", "data", "ca", "cageo2020.pl")
     vacc_file = os.path.join("..", "data", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
+    urban_file = None ## PENDING
     
     # Define location-specific parameters
     neighbors = SANTA_CLARA_NEIGHBORS
     
     # Gather population data from census file (leaving room for extra fields)
-    pdic = county_tract_info("Santa Clara", census_file, append=[-1, -1, -1])
+    pdic = county_tract_info("Santa Clara", census_file, append=[-1]*4)
     
     # Gather vaccination rates
     with open(vacc_file, 'r') as f:
@@ -765,6 +766,11 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     
     del svi
     
+    # Gather urban/rural metrics
+    ## PENDING
+    for fips in pdic:
+        pdic[fips][6] = 0.0
+    
     # Write population output file
     with open(popfile, 'w') as f:
         f.write(POP_HEADER)
@@ -827,4 +833,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
 
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
+process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop_new.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))

@@ -22,6 +22,8 @@ A population file is generated for each location, summarizing population center-
 * `pop`: Population, as of the most recent available census or estimate (-1 for missing data).
 * `vacc`: Vaccination rate (between 0.0 and 1.0), as of the most recent data (-1 for missing data).
 * `adi`: 2022 [Area Deprivation Index (ADI)](https://www.nejm.org/doi/full/10.1056/NEJMp1802313) ranking (-1 for missing data).
+* `svi`: 2020 [Social Vulnerability Index (SVI)](https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html) ranking (-1 for missing data).
+* `urban`: The fraction (from 0.0 to 1.0) of the tract's population living in an urban (as opposed to rural) census block, based on [Block-level Urban Area information for the 2020 Census](https://www.census.gov/programs-surveys/geography/guidance/geo-areas/urban-rural.html) and the 2020 [Census National Redistricting Data Summary Files](https://www2.census.gov/programs-surveys/decennial/2020/data/01-Redistricting_File--PL_94-171/0ReadMe_PL_National.pdf).
 
 Each location also has a population file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off, and they do not include `vacc` or `adi` fields.
 
