@@ -55,6 +55,8 @@ def _read_popfile(popfile):
         pop (dict(int)) -- Dictionary of population counts.
         coord (dict((float,float))) -- Dictionary of population center
             coordinates, as (latitude,longitude) tuples.
+        urban (dict(float)) -- Dictionary of population center urban population
+            fractions.
     
     All dictionaries are indexed by the population center IDs contained in the
     first column of the population file.
@@ -63,6 +65,7 @@ def _read_popfile(popfile):
     # Initialize dictionaries
     pop = dict() # dictionary of populations by popfile index
     coord = dict() # dictionary of latitutde/longitude pairs by popfile index
+    urban = dict() # dictionary of urban populations by popfile index
     
     # Read file
     with open(popfile, 'r') as f:
@@ -77,8 +80,9 @@ def _read_popfile(popfile):
             s = line.strip().split('\t')
             pop[int(s[0])] = int(s[POP_POP])
             coord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+            urban[int(s[0])] = float(s[POP_URBAN])
     
-    return (pop, coord)
+    return (pop, coord, urban)
 
 #------------------------------------------------------------------------------
 
