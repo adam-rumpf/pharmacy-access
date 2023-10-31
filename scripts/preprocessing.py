@@ -664,7 +664,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                         facfile=os.path.join("..", "processed", "santa_clara",
                                              "santa_clara_fac.tsv"),
                         nbrfacfile=os.path.join("..", "processed", "santa_clara",
-                                                "santa_clara_fac_nbr.tsv")):
+                                                "santa_clara_fac_nbr.tsv"),
+                        deletemissing=False):
     """Preprocessing scripts for the Santa Clara data.
     
     Keyword arguments:
@@ -676,6 +677,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             processed/ directory named "santa_clara_fac.tsv".
         nbrfacfile (str) -- Facility neighbor output file path. Defaults to a
             file in the processed/ directory named "santa_clara_fac_nbr.tsv".
+        deletemissing (bool) -- Whether to delete rows with missing data.
+            Defaults to False. Missing fields are generally filled with -1.
     """
     
     # Define location-specific file names
@@ -788,7 +791,20 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                 continue
             # Assign urban fraction to all collected FIPS code
             for fips in flist:
-                pdic[fips][6] = row["urbanPercent"]
+                pdic[fips][6] = float(row["urbanPercent"])
+    
+    # Delete entries with missing fields
+    if deletemissing == True:
+        rmfips = [] # keys to be removed
+        for fips in pdic:
+            # search for missing fields beyond the 4th
+            for field in pdic[fips][4:]:
+                if field < 0:
+                    rmfips.append(fips)
+                    continue
+        print(f"{len(rmfips)} fields removed due to missing data.")
+        for fips in rmfips:
+            del pdic[fips]
     
     # Write population output file
     with open(popfile, 'w') as f:
