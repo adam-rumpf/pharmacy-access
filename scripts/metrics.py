@@ -21,6 +21,8 @@ FAC_CAP = 4 # facility capacity
 POP_LAT = 2 # population latitude
 POP_LON = 3 # population longitude
 POP_POP = 4 # population total population value
+POP_SVI = 7 # population SVI ranking
+POP_URBAN = 8 # population urban fraction
 
 #==============================================================================
 # Common Functions

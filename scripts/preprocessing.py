@@ -689,7 +689,8 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     census_file = os.path.join("..", "data", "ca", "cageo2020.pl")
     vacc_file = os.path.join("..", "data", "santa_clara",
              "COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv")
-    urban_file = None ## PENDING
+    urban_file = os.path.join("..", "data", "santa_clara",
+        "santa_clara_urban.csv")
     
     # Define location-specific parameters
     neighbors = SANTA_CLARA_NEIGHBORS
@@ -772,10 +773,22 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     
     del svi
     
-    # Gather urban/rural metrics
-    ## PENDING
-    for fips in pdic:
-        pdic[fips][6] = 0.0
+    # Gather urban/rural fractions
+    with open(urban_file, 'r') as f:
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+        for row in reader:
+            # Find any and all FIPS codes that match the current row
+            prefix = row["GEOID"]
+            flist = []
+            for fips in pdic:
+                if fips[:len(prefix)] == prefix:
+                    flist.append(fips)
+            # Skip FIPS codes with no matches
+            if len(flist) < 1:
+                continue
+            # Assign urban fraction to all collected FIPS code
+            for fips in flist:
+                pdic[fips][6] = row["urbanPercent"]
     
     # Write population output file
     with open(popfile, 'w') as f:
@@ -839,4 +852,4 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
 
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
+process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
