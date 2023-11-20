@@ -55,8 +55,8 @@ def _read_popfile(popfile):
         pop (dict(int)) -- Dictionary of population counts.
         coord (dict((float,float))) -- Dictionary of population center
             coordinates, as (latitude,longitude) tuples.
-        urban (dict(float)) -- Dictionary of population center urban population
-            fractions.
+        svi (dict(float)) -- Dictionary of SVI rankings.
+        urban (dict(float)) -- Dictionary of urban fractions.
     
     All dictionaries are indexed by the population center IDs contained in the
     first column of the population file.
@@ -65,7 +65,8 @@ def _read_popfile(popfile):
     # Initialize dictionaries
     pop = dict() # dictionary of populations by popfile index
     coord = dict() # dictionary of latitutde/longitude pairs by popfile index
-    urban = dict() # dictionary of urban populations by popfile index
+    svi = dict() # dictionary of SVI rankings
+    urban = dict() # dictionary of urban/rural splits (fraction urban out of 1)
     
     # Read file
     with open(popfile, 'r') as f:
@@ -80,9 +81,10 @@ def _read_popfile(popfile):
             s = line.strip().split('\t')
             pop[int(s[0])] = int(s[POP_POP])
             coord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+            svi[int(s[0])] = float(s[POP_SVI])
             urban[int(s[0])] = float(s[POP_URBAN])
     
-    return (pop, coord, urban)
+    return (pop, coord, svi, urban)
 
 #------------------------------------------------------------------------------
 
@@ -171,6 +173,8 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
                    popnbrfile=None, facnbrfile=None, beta=1.0, crowding=True,
                    floor=0.0):
     """Computes a table of gravitational metrics for a given community.
+    
+    Deprecated for project revision (switching to 2SFCA metrics).
     
     Positional arguments:
         poutfile (str) -- Output population file path.
@@ -264,6 +268,8 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
                              speed=45.0):
     """The geodesic distance version of gravity_metric.
     
+    Deprecated for project revision (switching to 2SFCA metrics).
+    
     This script computes gravity metrics using geodesic distances computed as-
     needed. It is automatically called by gravity_metric when a distance file
     is not provided. It returns dictionaries of facility and population metrics
@@ -332,6 +338,8 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
 def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
                          facnbrfile=None, crowding=True, floor=0.0):
     """The distance file version of gravity_metric.
+    
+    Deprecated for project revision (switching to 2SFCA metrics).
     
     This script computes gravity metrics using a predefined distance file. It
     is automatically called by gravity_metric when a distance file is provided.
@@ -405,7 +413,8 @@ def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
 #==============================================================================
 
 def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
-               cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True):
+               cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True,
+               piecewise=0.5, speed=45.0):
     """Computes a table of 2SFCA metrics for a given community.
     
     Positional arguments:
@@ -421,14 +430,27 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
             the travel times between each population center/facility pair.
             Defaults to None, in which case geodesic distances are computed and
             used as needed.
-        cutoff (float) -- Travel time cutoff for defining catchment areas (in
-            minutes). Defaults to 30.0.
+        cutoff (float|tuple(float)) -- Travel time cutoff for defining
+            catchment areas (in minutes). Defaults to 30.0. If given a 2-tuple
+            of cutoff times, the first is treated as a cutoff time for urban
+            tracts while the second is for rural tracts.
         popnbrfile (str) -- Preprocessed neighboring county population file
             path. Defaults to None.
         facnbrfile (str) -- Preprocessed neighboring county facility file path.
             Defaults to None.
         crowding (bool) -- Whether or not to take crowding into consideration.
             Defaults to True.
+        piecewise (None|float) -- Controls how to treat the urban/rural travel
+            time cutoffs (and thus only relevant if "cutoff" is given as a
+            tuple). Defaults to 0.5. If given a float between 0.0 and 1.0, this
+            is treated as an urban percentage threshold above which the urban
+            travel time should be used, and below which the rural one should be
+            used. If "None", the cutoff is instead taken as a convex
+            combination of the urban and rural travel time cutoffs based on
+            the tracts urban/rural split.
+        speed (float) -- Assumed travel speed (mph). Defaults to 45.0. Only
+            needed if using geodesic distance, since otherwise the distance
+            file directly provides the travel times.
     
     This function implements the two-step floating catchment area (2SFCA)
     metric as described in Luo and Wang 2003 (doi:10.1068/b29120). We begin by
@@ -463,6 +485,28 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     crowding and accessibility metrics. This can be used to combat edge
     effects.
     
+    Additional options also exist to use different travel time cutoffs
+    depending on how much of the tract's population is urban versus rural. If
+    the "cutoff" argument is given as a 2-tuple, its elements will be
+    interpreted as an urban travel time cutoff d_U and a rural travel time
+    cutoff d_R, respectively. The "piecewise" argument determines how to treat
+    these cutoffs.
+    
+    To be more precise, let u_i be the fraction of tract i that is urban. If
+    the "piecewise" argument is given a float between 0.0 and 1.0, then the
+    number is treated as a threshold for u_i above which the urban travel time
+    cutoff is used and below which the rural one is used. For example, the
+    argument "cutoff=0.5" results in using a cutoff time for tract i of
+        
+              { d_U     if u_i >= 0.5
+        d_0 = {
+              { d_R     if u_i < 0.5
+    
+    If instead the "piecewise" argument is set to "None", the travel time
+    cutoff for tract i is taken as a convex combination of d_U and d_R
+        
+        d_0 = u_i*d_U + (1-u_i)*d_R
+    
     The output files are augmented versions of the input files, with a new
     column of crowdedness or accessibility metrics appended to the original
     tables.
@@ -473,12 +517,15 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
         (fmet, pmet) = _fca_metric_geodesic(popfile, facfile, cutoff=cutoff,
                                             popnbrfile=popnbrfile,
                                             facnbrfile=facnbrfile,
-                                            crowding=crowding)
+                                            crowding=crowding,
+                                            piecewise=piecewise,
+                                            speed=speed)
     else:
         (fmet, pmet) = _fca_metric_file(popfile, facfile, distfile,
                                         cutoff=cutoff, popnbrfile=popnbrfile,
                                         facnbrfile=facnbrfile,
-                                        crowding=crowding)
+                                        crowding=crowding,
+                                        piecewise=piecewise)
     
     # Write facility output file with a new crowdedness metric column
     if crowding == True:
@@ -492,7 +539,8 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
 #------------------------------------------------------------------------------
 
 def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
-                         facnbrfile=None, crowding=True, speed=45.0):
+                         facnbrfile=None, crowding=True, piecewise=0.5,
+                         speed=45.0):
     """The geodesic distance version of fca_metric.
     
     This script computes 2SFCA metrics using geodesic distances computed as-
@@ -567,7 +615,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
 #------------------------------------------------------------------------------
 
 def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
-                     facnbrfile=None, crowding=True):
+                     facnbrfile=None, crowding=True, cutoff=0.5):
     """The distance file version of gravity_metric.
     
     This script computes gravity metrics using a predefined distance file. It
