@@ -43,7 +43,7 @@ def geodesic_distance(p1, p2):
 
 #------------------------------------------------------------------------------
 
-def _read_popfile(popfile, nbr=False):
+def _read_popfile(popfile):
     """Reads a population file and returns dictionaries of data.
     
     Positional arguments:
@@ -620,7 +620,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
             p = 0 # total population in range
             for k in pop:
                 d = geodesic_distance(pcoord[k], fcoord[j])/speed # time (min)
-                if d <= cutoff:
+                if d <= d0[k]:
                     p += pop[k]
             if p > 0:
                 fmet[j] = cap[j]/p
@@ -639,7 +639,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
             if fmet[j] < 0:
                 continue
             d = geodesic_distance(pcoord[i], fcoord[j])/speed # time (minutes)
-            if d <= cutoff:
+            if d <= d0[i]:
                 pmet[i] += fmet[j]
     
     # Return facility and population metric dictionaries (original indices only)
@@ -694,7 +694,7 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
     
     # If a neighboring facility file is provided, merge its contents
     if facnbrfile != None:
-        (capnbr, fcoordnbr) = _read_popfile(facnbrfile)
+        (capnbr, fcoordnbr) = _read_facfile(facnbrfile)
         cap = {**cap, **capnbr}
         fcoord = {**fcoord, **fcoordnbr}
         del capnbr
@@ -717,7 +717,7 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
             p = 0 # total population in range
             for k in pop:
                 d = dist[(k,j)] # travel time (min)
-                if d <= cutoff:
+                if d <= d0[k]:
                     p += pop[k]
             if p > 0:
                 fmet[j] = cap[j]/p
@@ -736,7 +736,7 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
             if fmet[j] < 0:
                 continue
             d = dist[(i,j)] # travel time (min)
-            if d <= cutoff:
+            if d <= d0[i]:
                 pmet[i] += fmet[j]
     
     # Return facility and population metric dictionaries (original indices only)
@@ -780,8 +780,17 @@ distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv"
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
 #poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo_nocrowding.tsv")
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_tt.tsv")
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_convex.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_convex.tsv")
 fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
 #poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt_nocrowding.tsv")
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_50.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_50.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.5, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_25.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_25.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.25, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_75.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_75.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.75, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
