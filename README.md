@@ -1,6 +1,6 @@
-# COVID-19 Vaccine Accessibility Study
+# Pharmacy Accessibility Study
 
-A collection of data processing scripts for use in an ongoing research project about measuring accessibility levels to COVID-19 vaccines. These scripts are unlikely to be of use to anyone ourside our research group, but are provided here for anyone interested. Python packages used can be found in the root-level `requirements` file.
+A collection of data processing scripts for use in an ongoing research project about measuring accessibility levels to pharmacies. These scripts are unlikely to be of use to anyone ourside our research group, but are provided here for anyone interested. Python packages used can be found in the root-level `requirements` file.
 
 ## Contents
 
