@@ -165,6 +165,23 @@ def _augment_file(outfile, infile, column, label, default="-1"):
                     c = default # default element for missing indices
                 f.write(line.strip() + '\t' + str(c) + "\t\n")
 
+#------------------------------------------------------------------------------
+
+def _threshold(x, cutoff, a, b):
+    """Returns a if x >= cutoff and b otherwise."""
+    
+    if x >= cutoff:
+        return a
+    else:
+        return b
+
+#------------------------------------------------------------------------------
+
+def _convex(x, a, b):
+    """Returns x*a + (1-x)*b."""
+    
+    return x*a + (1-x)*b
+
 #==============================================================================
 # Gravity Metric Scripts
 #==============================================================================
@@ -556,8 +573,21 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
     speed /= 60.0
     
     # Read population file
-    (pop, pcoord) = _read_popfile(popfile)
+    (pop, pcoord, _, urban) = _read_popfile(popfile)
     pkeys = list(pop.keys()) # store main population keys
+    
+    # Define a travel time cutoff for each tract
+    d0 = dict()
+    if isinstance(cutoff, tuple) and len(cutoff) > 1:
+        # If the cutoff is at least a 2-tuple, use variable cutoffs
+        if piecewise == None:
+            # Convex combination
+            for k in pop:
+                d0[k] = _convex(urban[k], cutoff[0], cutoff[1])
+        else:
+            # Binary urban/rural threshold
+            for k in pop:
+                d0[k] = _threshold(urban[k], piecewise, cutoff[0], cutoff[1])
     
     # If a neighboring population file is provided, merge its contents
     if popnbrfile != None:
@@ -615,7 +645,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
 #------------------------------------------------------------------------------
 
 def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
-                     facnbrfile=None, crowding=True, cutoff=0.5):
+                     facnbrfile=None, crowding=True, piecewise=0.5):
     """The distance file version of gravity_metric.
     
     This script computes gravity metrics using a predefined distance file. It
@@ -625,8 +655,25 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
     """
     
     # Read population file
-    (pop, pcoord) = _read_popfile(popfile)
+    (pop, pcoord, _, urban) = _read_popfile(popfile)
     pkeys = list(pop.keys()) # store main population keys
+    
+    # Define a travel time cutoff for each tract
+    d0 = dict()
+    if isinstance(cutoff, tuple) and len(cutoff) > 1:
+        # If the cutoff is at least a 2-tuple, use variable cutoffs
+        if piecewise == None:
+            # Convex combination
+            for k in pop:
+                d0[k] = _convex(urban[k], cutoff[0], cutoff[1])
+        else:
+            # Binary urban/rural threshold
+            for k in pop:
+                d0[k] = _threshold(urban[k], piecewise, cutoff[0], cutoff[1])
+    else:
+        # Otherwise use a constant cutoff
+        for k in pop:
+            d0[k] = float(cutoff)
     
     # If a neighboring population file is provided, merge its contents
     if popnbrfile != None:
@@ -712,24 +759,24 @@ facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
 facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
 distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_geo.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo_nocrowding.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_tt.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile, floor=1.0)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt_nocrowding.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, floor=1.0)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_geo.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo_nocrowding.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_tt.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile, floor=1.0)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt_nocrowding.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, floor=1.0)
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_geo.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo_nocrowding.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_geo.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo_nocrowding.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
 poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt.tsv")
 foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_tt.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt_nocrowding.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile)
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt_nocrowding.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile)
