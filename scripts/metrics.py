@@ -51,10 +51,15 @@ def _read_popfile(popfile):
             include the coordinates and population of each population
             center.
     
+    Keyword arguments:
+        nbr (bool) -- Whether
+    
     Returns:
         pop (dict(int)) -- Dictionary of population counts.
         coord (dict((float,float))) -- Dictionary of population center
             coordinates, as (latitude,longitude) tuples.
+        svi (dict(float)) -- Dictionary of SVI rankings.
+        urban (dict(float)) -- Dictionary of urban fractions.
     
     All dictionaries are indexed by the population center IDs contained in the
     first column of the population file.
@@ -63,6 +68,8 @@ def _read_popfile(popfile):
     # Initialize dictionaries
     pop = dict() # dictionary of populations by popfile index
     coord = dict() # dictionary of latitutde/longitude pairs by popfile index
+    svi = dict() # dictionary of SVI rankings
+    urban = dict() # dictionary of urban/rural splits (fraction urban out of 1)
     
     # Read file
     with open(popfile, 'r') as f:
@@ -77,8 +84,10 @@ def _read_popfile(popfile):
             s = line.strip().split('\t')
             pop[int(s[0])] = int(s[POP_POP])
             coord[int(s[0])] = (float(s[POP_LAT]), float(s[POP_LON]))
+            svi[int(s[0])] = float(s[POP_SVI])
+            urban[int(s[0])] = float(s[POP_URBAN])
     
-    return (pop, coord)
+    return (pop, coord, svi, urban)
 
 #------------------------------------------------------------------------------
 
@@ -159,6 +168,23 @@ def _augment_file(outfile, infile, column, label, default="-1"):
                     c = default # default element for missing indices
                 f.write(line.strip() + '\t' + str(c) + "\t\n")
 
+#------------------------------------------------------------------------------
+
+def _threshold(x, cutoff, a, b):
+    """Returns a if x >= cutoff and b otherwise."""
+    
+    if x >= cutoff:
+        return a
+    else:
+        return b
+
+#------------------------------------------------------------------------------
+
+def _convex(x, a, b):
+    """Returns x*a + (1-x)*b."""
+    
+    return x*a + (1-x)*b
+
 #==============================================================================
 # Gravity Metric Scripts
 #==============================================================================
@@ -167,6 +193,8 @@ def gravity_metric(poutfile, foutfile, popfile, facfile, distfile=None,
                    popnbrfile=None, facnbrfile=None, beta=1.0, crowding=True,
                    floor=0.0):
     """Computes a table of gravitational metrics for a given community.
+    
+    Deprecated for project revision (switching to 2SFCA metrics).
     
     Positional arguments:
         poutfile (str) -- Output population file path.
@@ -260,6 +288,8 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
                              speed=45.0):
     """The geodesic distance version of gravity_metric.
     
+    Deprecated for project revision (switching to 2SFCA metrics).
+    
     This script computes gravity metrics using geodesic distances computed as-
     needed. It is automatically called by gravity_metric when a distance file
     is not provided. It returns dictionaries of facility and population metrics
@@ -328,6 +358,8 @@ def _gravity_metric_geodesic(popfile, facfile, beta=1.0, popnbrfile=None,
 def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
                          facnbrfile=None, crowding=True, floor=0.0):
     """The distance file version of gravity_metric.
+    
+    Deprecated for project revision (switching to 2SFCA metrics).
     
     This script computes gravity metrics using a predefined distance file. It
     is automatically called by gravity_metric when a distance file is provided.
@@ -401,7 +433,8 @@ def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
 #==============================================================================
 
 def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
-               cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True):
+               cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True,
+               piecewise=0.5, speed=45.0):
     """Computes a table of 2SFCA metrics for a given community.
     
     Positional arguments:
@@ -417,14 +450,27 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
             the travel times between each population center/facility pair.
             Defaults to None, in which case geodesic distances are computed and
             used as needed.
-        cutoff (float) -- Travel time cutoff for defining catchment areas (in
-            minutes). Defaults to 30.0.
+        cutoff (float|tuple(float)) -- Travel time cutoff for defining
+            catchment areas (in minutes). Defaults to 30.0. If given a 2-tuple
+            of cutoff times, the first is treated as a cutoff time for urban
+            tracts while the second is for rural tracts.
         popnbrfile (str) -- Preprocessed neighboring county population file
             path. Defaults to None.
         facnbrfile (str) -- Preprocessed neighboring county facility file path.
             Defaults to None.
         crowding (bool) -- Whether or not to take crowding into consideration.
             Defaults to True.
+        piecewise (None|float) -- Controls how to treat the urban/rural travel
+            time cutoffs (and thus only relevant if "cutoff" is given as a
+            tuple). Defaults to 0.5. If given a float between 0.0 and 1.0, this
+            is treated as an urban percentage threshold above which the urban
+            travel time should be used, and below which the rural one should be
+            used. If "None", the cutoff is instead taken as a convex
+            combination of the urban and rural travel time cutoffs based on
+            the tracts urban/rural split.
+        speed (float) -- Assumed travel speed (mph). Defaults to 45.0. Only
+            needed if using geodesic distance, since otherwise the distance
+            file directly provides the travel times.
     
     This function implements the two-step floating catchment area (2SFCA)
     metric as described in Luo and Wang 2003 (doi:10.1068/b29120). We begin by
@@ -459,6 +505,28 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
     crowding and accessibility metrics. This can be used to combat edge
     effects.
     
+    Additional options also exist to use different travel time cutoffs
+    depending on how much of the tract's population is urban versus rural. If
+    the "cutoff" argument is given as a 2-tuple, its elements will be
+    interpreted as an urban travel time cutoff d_U and a rural travel time
+    cutoff d_R, respectively. The "piecewise" argument determines how to treat
+    these cutoffs.
+    
+    To be more precise, let u_i be the fraction of tract i that is urban. If
+    the "piecewise" argument is given a float between 0.0 and 1.0, then the
+    number is treated as a threshold for u_i above which the urban travel time
+    cutoff is used and below which the rural one is used. For example, the
+    argument "cutoff=0.5" results in using a cutoff time for tract i of
+        
+              { d_U     if u_i >= 0.5
+        d_0 = {
+              { d_R     if u_i < 0.5
+    
+    If instead the "piecewise" argument is set to "None", the travel time
+    cutoff for tract i is taken as a convex combination of d_U and d_R
+        
+        d_0 = u_i*d_U + (1-u_i)*d_R
+    
     The output files are augmented versions of the input files, with a new
     column of crowdedness or accessibility metrics appended to the original
     tables.
@@ -469,12 +537,15 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
         (fmet, pmet) = _fca_metric_geodesic(popfile, facfile, cutoff=cutoff,
                                             popnbrfile=popnbrfile,
                                             facnbrfile=facnbrfile,
-                                            crowding=crowding)
+                                            crowding=crowding,
+                                            piecewise=piecewise,
+                                            speed=speed)
     else:
         (fmet, pmet) = _fca_metric_file(popfile, facfile, distfile,
                                         cutoff=cutoff, popnbrfile=popnbrfile,
                                         facnbrfile=facnbrfile,
-                                        crowding=crowding)
+                                        crowding=crowding,
+                                        piecewise=piecewise)
     
     # Write facility output file with a new crowdedness metric column
     if crowding == True:
@@ -488,7 +559,8 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
 #------------------------------------------------------------------------------
 
 def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
-                         facnbrfile=None, crowding=True, speed=45.0):
+                         facnbrfile=None, crowding=True, piecewise=0.5,
+                         speed=45.0):
     """The geodesic distance version of fca_metric.
     
     This script computes 2SFCA metrics using geodesic distances computed as-
@@ -504,7 +576,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
     speed /= 60.0
     
     # Read population file
-    (pop, pcoord) = _read_popfile(popfile)
+    (pop, pcoord, _, urban) = _read_popfile(popfile)
     pkeys = list(pop.keys()) # store main population keys
     
     # If a neighboring population file is provided, merge its contents
@@ -514,6 +586,19 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
         pcoord = {**pcoord, **pcoordnbr}
         del popnbr
         del pcoordnbr
+    
+    # Define a travel time cutoff for each tract
+    d0 = dict()
+    if isinstance(cutoff, tuple) and len(cutoff) > 1:
+        # If the cutoff is at least a 2-tuple, use variable cutoffs
+        if piecewise == None:
+            # Convex combination
+            for k in pop:
+                d0[k] = _convex(urban[k], cutoff[0], cutoff[1])
+        else:
+            # Binary urban/rural threshold
+            for k in pop:
+                d0[k] = _threshold(urban[k], piecewise, cutoff[0], cutoff[1])
     
     # Read facility file
     (cap, fcoord) = _read_facfile(facfile)
@@ -535,7 +620,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
             p = 0 # total population in range
             for k in pop:
                 d = geodesic_distance(pcoord[k], fcoord[j])/speed # time (min)
-                if d <= cutoff:
+                if d <= d0[k]:
                     p += pop[k]
             if p > 0:
                 fmet[j] = cap[j]/p
@@ -554,7 +639,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
             if fmet[j] < 0:
                 continue
             d = geodesic_distance(pcoord[i], fcoord[j])/speed # time (minutes)
-            if d <= cutoff:
+            if d <= d0[i]:
                 pmet[i] += fmet[j]
     
     # Return facility and population metric dictionaries (original indices only)
@@ -563,7 +648,7 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
 #------------------------------------------------------------------------------
 
 def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
-                     facnbrfile=None, crowding=True):
+                     facnbrfile=None, crowding=True, piecewise=0.5):
     """The distance file version of gravity_metric.
     
     This script computes gravity metrics using a predefined distance file. It
@@ -573,16 +658,35 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
     """
     
     # Read population file
-    (pop, pcoord) = _read_popfile(popfile)
+    (pop, pcoord, _, urban) = _read_popfile(popfile)
     pkeys = list(pop.keys()) # store main population keys
     
     # If a neighboring population file is provided, merge its contents
     if popnbrfile != None:
-        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
+        (popnbr, pcoordnbr, _, urbnbr) = _read_popfile(popnbrfile)
         pop = {**pop, **popnbr}
         pcoord = {**pcoord, **pcoordnbr}
+        urban = {**urban, **urbnbr}
         del popnbr
         del pcoordnbr
+        del urbnbr
+    
+    # Define a travel time cutoff for each tract
+    d0 = dict()
+    if isinstance(cutoff, tuple) and len(cutoff) > 1:
+        # If the cutoff is at least a 2-tuple, use variable cutoffs
+        if piecewise == None:
+            # Convex combination
+            for k in pop:
+                d0[k] = _convex(urban[k], cutoff[0], cutoff[1])
+        else:
+            # Binary urban/rural threshold
+            for k in pop:
+                d0[k] = _threshold(urban[k], piecewise, cutoff[0], cutoff[1])
+    else:
+        # Otherwise use a constant cutoff
+        for k in pop:
+            d0[k] = float(cutoff)
     
     # Read facility file
     (cap, fcoord) = _read_facfile(facfile)
@@ -590,7 +694,7 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
     
     # If a neighboring facility file is provided, merge its contents
     if facnbrfile != None:
-        (capnbr, fcoordnbr) = _read_popfile(facnbrfile)
+        (capnbr, fcoordnbr) = _read_facfile(facnbrfile)
         cap = {**cap, **capnbr}
         fcoord = {**fcoord, **fcoordnbr}
         del capnbr
@@ -613,7 +717,7 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
             p = 0 # total population in range
             for k in pop:
                 d = dist[(k,j)] # travel time (min)
-                if d <= cutoff:
+                if d <= d0[k]:
                     p += pop[k]
             if p > 0:
                 fmet[j] = cap[j]/p
@@ -632,7 +736,7 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
             if fmet[j] < 0:
                 continue
             d = dist[(i,j)] # travel time (min)
-            if d <= cutoff:
+            if d <= d0[i]:
                 pmet[i] += fmet[j]
     
     # Return facility and population metric dictionaries (original indices only)
@@ -660,24 +764,33 @@ facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
 facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
 distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_geo.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo_nocrowding.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_tt.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile, floor=1.0)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt_nocrowding.tsv")
-gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, floor=1.0)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_geo.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo_nocrowding.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_tt.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile, floor=1.0)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_tt_nocrowding.tsv")
+#gravity_metric(poutfile, foutfile, popfile, facfile, beta=1.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, floor=1.0)
 
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_geo.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo_nocrowding.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_tt.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt_nocrowding.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_030_geo.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo_nocrowding.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_convex.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_convex.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt_nocrowding.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_50.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_50.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.5, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_25.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_25.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.25, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_75.tsv")
+foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_75.tsv")
+fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.75, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
