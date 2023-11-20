@@ -27,7 +27,7 @@ import tqdm
 POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\turban\tpov150\tnoveh\n"
 
 # Shorter population center file header (for neighbor files)
-POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\n"
+POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\turban\n"
 
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
@@ -791,7 +791,10 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                 continue
             # Assign urban fraction to all collected FIPS code
             for fips in flist:
-                pdic[fips][6] = float(row["urbanPercent"])
+                try:
+                    pdic[fips][6] = float(row["urbanPercent"])
+                except ValueError:
+                    pass
     
     # Delete entries with missing fields
     if deletemissing == True:
@@ -822,12 +825,32 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             index += 1
     
     # Gather neighboring county data
-    pndic = county_tract_info(neighbors, census_file)
+    pndic = county_tract_info(neighbors, census_file, append=[-1])
     
     # Delete duplicates
     for fips in pdic:
         if fips in pndic:
             del pndic[fips]
+    
+    # Gather neighbor urban/rural fractions
+    with open(urban_file, 'r') as f:
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+        for row in reader:
+            # Find any and all FIPS codes that match the current row
+            prefix = row["GEOID"]
+            flist = []
+            for fips in pndic:
+                if fips[:len(prefix)] == prefix:
+                    flist.append(fips)
+            # Skip FIPS codes with no matches
+            if len(flist) < 1:
+                continue
+            # Assign urban fraction to all collected FIPS code
+            for fips in flist:
+                try:
+                    pndic[fips][3] = float(row["urbanPercent"])
+                except ValueError:
+                    pass
     
     # Write population neighbor output file
     with open(nbrpopfile, 'w') as f:
