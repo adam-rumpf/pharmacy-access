@@ -26,9 +26,6 @@ import tqdm
 # Population center file header (including column labels)
 POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\turban\tpov150\tnoveh\n"
 
-# Shorter population center file header (for neighbor files)
-POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\turban\n"
-
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 
@@ -792,9 +789,17 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             # Assign urban fraction to all collected FIPS code
             for fips in flist:
                 try:
-                    pdic[fips][6] = float(row["urbanPercent"])
+                    # Clamp fraction between 0.0 and 1.0
+                    u = min(max(float(row["urbanPercent"]), 0.0), 1.0)
+                    pdic[fips][6] = u
                 except ValueError:
-                    pass
+                    # Set missing fields to 0% urban
+                    pdic[fips][6] = 0.0
+    
+    # Set unknown tracts to 0% urban
+    for fips in pdic:
+        if pdic[fips][6] < 0:
+            pdic[fips][6] = 0.0
     
     # Delete entries with missing fields
     if deletemissing == True:
@@ -825,7 +830,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             index += 1
     
     # Gather neighboring county data
-    pndic = county_tract_info(neighbors, census_file, append=[-1])
+    pndic = county_tract_info(neighbors, census_file, append=[-1]*6)
     
     # Delete duplicates
     for fips in pdic:
@@ -848,13 +853,21 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             # Assign urban fraction to all collected FIPS code
             for fips in flist:
                 try:
-                    pndic[fips][3] = float(row["urbanPercent"])
+                    # Clamp fraction between 0.0 and 1.0
+                    u = min(max(float(row["urbanPercent"]), 0.0), 1.0)
+                    pndic[fips][6] = u
                 except ValueError:
-                    pass
+                    # Set missing fields to 0% urban
+                    pndic[fips][6] = 0.0
+    
+    # Set unknown tracts to 0% urban
+    for fips in pndic:
+        if pndic[fips][6] < 0:
+            pndic[fips][6] = 0.0
     
     # Write population neighbor output file
     with open(nbrpopfile, 'w') as f:
-        f.write(POP_HEADER_SHORT)
+        f.write(POP_HEADER)
         sk = sorted(pndic.keys())
         # "index" carries over from the main population file
         for i in range(len(sk)):

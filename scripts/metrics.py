@@ -43,13 +43,16 @@ def geodesic_distance(p1, p2):
 
 #------------------------------------------------------------------------------
 
-def _read_popfile(popfile):
+def _read_popfile(popfile, nbr=False):
     """Reads a population file and returns dictionaries of data.
     
     Positional arguments:
         popfile (str) -- Preprocessed population file path, which should
             include the coordinates and population of each population
             center.
+    
+    Keyword arguments:
+        nbr (bool) -- Whether
     
     Returns:
         pop (dict(int)) -- Dictionary of population counts.
@@ -576,6 +579,14 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
     (pop, pcoord, _, urban) = _read_popfile(popfile)
     pkeys = list(pop.keys()) # store main population keys
     
+    # If a neighboring population file is provided, merge its contents
+    if popnbrfile != None:
+        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
+        pop = {**pop, **popnbr}
+        pcoord = {**pcoord, **pcoordnbr}
+        del popnbr
+        del pcoordnbr
+    
     # Define a travel time cutoff for each tract
     d0 = dict()
     if isinstance(cutoff, tuple) and len(cutoff) > 1:
@@ -588,14 +599,6 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
             # Binary urban/rural threshold
             for k in pop:
                 d0[k] = _threshold(urban[k], piecewise, cutoff[0], cutoff[1])
-    
-    # If a neighboring population file is provided, merge its contents
-    if popnbrfile != None:
-        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
-        pop = {**pop, **popnbr}
-        pcoord = {**pcoord, **pcoordnbr}
-        del popnbr
-        del pcoordnbr
     
     # Read facility file
     (cap, fcoord) = _read_facfile(facfile)
@@ -658,6 +661,16 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
     (pop, pcoord, _, urban) = _read_popfile(popfile)
     pkeys = list(pop.keys()) # store main population keys
     
+    # If a neighboring population file is provided, merge its contents
+    if popnbrfile != None:
+        (popnbr, pcoordnbr, _, urbnbr) = _read_popfile(popnbrfile)
+        pop = {**pop, **popnbr}
+        pcoord = {**pcoord, **pcoordnbr}
+        urban = {**urban, **urbnbr}
+        del popnbr
+        del pcoordnbr
+        del urbnbr
+    
     # Define a travel time cutoff for each tract
     d0 = dict()
     if isinstance(cutoff, tuple) and len(cutoff) > 1:
@@ -674,14 +687,6 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
         # Otherwise use a constant cutoff
         for k in pop:
             d0[k] = float(cutoff)
-    
-    # If a neighboring population file is provided, merge its contents
-    if popnbrfile != None:
-        (popnbr, pcoordnbr) = _read_popfile(popnbrfile)
-        pop = {**pop, **popnbr}
-        pcoord = {**pcoord, **pcoordnbr}
-        del popnbr
-        del pcoordnbr
     
     # Read facility file
     (cap, fcoord) = _read_facfile(facfile)

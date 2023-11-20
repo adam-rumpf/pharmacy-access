@@ -27,7 +27,7 @@ A population file is generated for each location, summarizing population center-
 * `pov150`: Fraction (from 0.0 to 1.0) of tract's population living below 150% of the poverty level, based on 2020 [SVI](https://www.atsdr.cdc.gov/placeandhealth/svi/documentation/SVI_documentation_2020.html).
 * `noveh`: Fraction (from 0.0 to 1.0) of households in tract that do not have a vehicle, based on 2020 [SVI](https://www.atsdr.cdc.gov/placeandhealth/svi/documentation/SVI_documentation_2020.html).
 
-Each location also has a population file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off, and they include only a subset of the main location's fields, including: `id`, `name`, `lat`, `lon`, `pop`, and `urban`.
+Each location also has a population file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off. They include all the same fields as the main population file, but with most filled with the -1 missing data entry except for: `id`, `name`, `lat`, `lon`, `pop`, and `urban`.
 
 ## Facility File Format
 
