@@ -26,9 +26,6 @@ import tqdm
 # Population center file header (including column labels)
 POP_HEADER = "id\tname\tlat\tlon\tpop\tvacc\tadi\tsvi\turban\tpov150\tnoveh\n"
 
-# Shorter population center file header (for neighbor files)
-POP_HEADER_SHORT = "id\tname\tlat\tlon\tpop\n"
-
 # Facility file header (including column labels)
 FAC_HEADER = "id\tname\tlat\tlon\tcap\t\n"
 
@@ -791,7 +788,18 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
                 continue
             # Assign urban fraction to all collected FIPS code
             for fips in flist:
-                pdic[fips][6] = float(row["urbanPercent"])
+                try:
+                    # Clamp fraction between 0.0 and 1.0
+                    u = min(max(float(row["urbanPercent"]), 0.0), 1.0)
+                    pdic[fips][6] = u
+                except ValueError:
+                    # Set missing fields to 0% urban
+                    pdic[fips][6] = 0.0
+    
+    # Set unknown tracts to 0% urban
+    for fips in pdic:
+        if pdic[fips][6] < 0:
+            pdic[fips][6] = 0.0
     
     # Delete entries with missing fields
     if deletemissing == True:
@@ -822,16 +830,44 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
             index += 1
     
     # Gather neighboring county data
-    pndic = county_tract_info(neighbors, census_file)
+    pndic = county_tract_info(neighbors, census_file, append=[-1]*6)
     
     # Delete duplicates
     for fips in pdic:
         if fips in pndic:
             del pndic[fips]
     
+    # Gather neighbor urban/rural fractions
+    with open(urban_file, 'r') as f:
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+        for row in reader:
+            # Find any and all FIPS codes that match the current row
+            prefix = row["GEOID"]
+            flist = []
+            for fips in pndic:
+                if fips[:len(prefix)] == prefix:
+                    flist.append(fips)
+            # Skip FIPS codes with no matches
+            if len(flist) < 1:
+                continue
+            # Assign urban fraction to all collected FIPS code
+            for fips in flist:
+                try:
+                    # Clamp fraction between 0.0 and 1.0
+                    u = min(max(float(row["urbanPercent"]), 0.0), 1.0)
+                    pndic[fips][6] = u
+                except ValueError:
+                    # Set missing fields to 0% urban
+                    pndic[fips][6] = 0.0
+    
+    # Set unknown tracts to 0% urban
+    for fips in pndic:
+        if pndic[fips][6] < 0:
+            pndic[fips][6] = 0.0
+    
     # Write population neighbor output file
     with open(nbrpopfile, 'w') as f:
-        f.write(POP_HEADER_SHORT)
+        f.write(POP_HEADER)
         sk = sorted(pndic.keys())
         # "index" carries over from the main population file
         for i in range(len(sk)):
