@@ -154,6 +154,19 @@ def _read_facfile(facfile):
 
 #------------------------------------------------------------------------------
 
+def show_graphml(mapfile):
+    """Displays a map file for review.
+    
+    Positional arguments:
+        mapfile (str) -- Path to input .graphml file.
+    """
+    
+    # Load .graphml file and display
+    G = ox.load_graphml(mapfile)
+    ox.plot_graph(G)
+
+#------------------------------------------------------------------------------
+
 def graphml_to_tsv(mapfile, arcfile, weight="travel_time", directed=True):
     """Converts a .graphml map into a simplified pure graph file.
     
