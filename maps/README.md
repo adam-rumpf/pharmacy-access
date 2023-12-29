@@ -4,5 +4,6 @@ This subdirectory includes raw map files downloaded for use in travel time compu
 
 ## Files
 
+* `fl_map.graphml`: Florida and surrounding areas. Downloaded December 29, 2023.
 * `polk_map.graphml`: Polk County, FL, and surrounding areas. Downloaded December 29, 2023.
 * `santa_clara_map.graphml`: Santa Clara County, CA, and surrounding areas. Downloaded June 5, 2023.

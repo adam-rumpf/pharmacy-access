@@ -50,7 +50,7 @@ def download_map_places(outfile, places):
             Each such query should be a dictionary of the form:
             {"county": "COUNTYNAME", "state": "STATENAME"}
     
-    This function downloads and saves a map as.graphml file. The map is
+    This function downloads and saves a map as a .graphml file. The map is
     downloaded using OpenStreetMap driving network data.
     """
     
@@ -62,6 +62,43 @@ def download_map_places(outfile, places):
     print("Downloading map data.")
     t = time.time()
     G = ox.graph.graph_from_place(places, network_type="drive")
+    print(f"Map downloaded after {time.time()-t} seconds.")
+    
+    # Impute missing edge speeds then calculate edge travel times
+    print("Imputing edge speeds.")
+    t = time.time()
+    G = ox.add_edge_speeds(G) # kph
+    G = ox.add_edge_travel_times(G)
+    print(f"Edge speeds added after {time.time()-t} seconds.")
+    
+    # Save the map
+    ox.save_graphml(G, outfile)
+    print("Map successfully saved as " + str(outfile))
+
+#------------------------------------------------------------------------------
+
+def download_map_rectangle(outfile, north, south, east, west):
+    """Downloads and saves OpenStreetMap data within a bounding rectangle.
+    
+    Positional arguments:
+        outfile (str) -- Output file path.
+        north (float) -- Northern bounding latitude.
+        south (float) -- Southern bounding latitude.
+        east (float) -- Eastern bounding longitude.
+        west (float) -- Western bounding longitude.
+    
+    This function downloads and saves a map as a .graphml file. The map is
+    downloaded using OpenStreetMap driving network data.
+    """
+    
+    # Verify that the output file has the .graphml extension
+    if os.path.splitext(outfile)[1] != ".graphml":
+        raise ValueError("output file must have the '.graphml' extension")
+    
+    # Download the map
+    print("Downloading map data.")
+    t = time.time()
+    G = ox.graph.graph_from_bbox(north, south, east, west, network_type="drive")
     print(f"Map downloaded after {time.time()-t} seconds.")
     
     # Impute missing edge speeds then calculate edge travel times
@@ -684,6 +721,12 @@ def distance_file(arcfile, pnodefile, fnodefile, distfile, factor=10,
 #graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time", directed=False)
 #map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile, popnbrfile=santa_clara_popfile_nbr, facnbrfile=santa_clara_facfile_nbr)
 #distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
+
+# Generate Florida street network
+#fl_mapfile = os.path.join("..", "maps", "fl", "fl_map.graphml")
+# Download: 1292.6267251968384 seconds
+# Edge speeds: 127.68632864952087 seconds
+#download_map_rectangle(fl_mapfile, 31.784, 24.477, -79.915, -88.506)
 
 # Generate Polk place list
 polk_mapfile = os.path.join("..", "maps", "polk", "polk_map.graphml")
