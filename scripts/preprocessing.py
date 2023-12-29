@@ -1,4 +1,4 @@
-"""COVID-19 Vaccine accessibility project preprocessing scripts.
+"""Pharmacy accessibility project preprocessing scripts.
 
 The code below includes various scripts for collecting data from a variety of
 assorted raw data files and collecting them into summary files with a standard

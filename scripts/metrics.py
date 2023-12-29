@@ -1,4 +1,4 @@
-"""COVID-19 Vaccine accessibility project accessibility metrification scripts.
+"""Pharmacy accessibility project accessibility metrification scripts.
 
 The code below defines various functions that work with the preprocessed data
 files, all of which should have a standardized format. Various accessibility

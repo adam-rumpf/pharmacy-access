@@ -7,6 +7,8 @@ _general/
     Vaccines.gov__COVID-19_vaccinating_provider_locations.csv
 ca/
     cageo2020.pl
+fl/
+    flgeo2020.pl
 santa_clara/
     CA_2020_ADI_Census_Block_Group_v3.2.csv
     COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv
@@ -25,6 +27,10 @@ The files for each location, along with their sources, are explained below.
 ## CA (California)
 
 * [`cageo2020.pl`](https://www2.census.gov/programs-surveys/decennial/2020/data/01-Redistricting_File--PL_94-171/): Geographic header file for the California portion of the 2020 Census National Redistricting Data Summary File, last updated August 12, 2021. See the header file's documentation [here](https://www2.census.gov/programs-surveys/decennial/2020/technical-documentation/complete-tech-docs/summary-file/2020Census_PL94_171Redistricting_NationalTechDoc.pdf).
+
+## FL (Florida)
+
+* [`flgeo2020.pl`](https://www2.census.gov/programs-surveys/decennial/2020/data/01-Redistricting_File--PL_94-171/): Analogous to `cageo2020.pl` described [above](#ca-california), but for Florida.
 
 ## Santa Clara County
 

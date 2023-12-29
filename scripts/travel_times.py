@@ -1,4 +1,4 @@
-"""COVID-19 Vaccine accessibility project travel time scripts.
+"""Pharmacy accessibility project travel time scripts.
 
 The code below includes various scripts for generating required data from the
 preprocessed data files, notably including origin/destination travel time
@@ -28,10 +28,14 @@ POP_LAT = 2 # population latitude
 POP_LON = 3 # population longitude
 POP_POP = 4 # population total population value
 
-# Counties neighboring Santa Clara
+# Counties neighboring Santa Clara, CA
 SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
                          "San Francisco", "San Joaquin", "San Mateo",
                          "Santa Cruz", "Stanislaus"]
+
+# Counties neighboring Polk, FL
+POLK_NEIGHBORS = ["Hardee", "Highlands", "Hillsborough", "Lake", "Manatee",
+                  "Okeechobee", "Orange", "Osceola", "Pasco", "Sumter"]
 
 #==============================================================================
 # Data Gathering and Conversion
@@ -649,15 +653,15 @@ def distance_file(arcfile, pnodefile, fnodefile, distfile, factor=10,
 # Comment or uncomment the function calls below to process each location.
 
 # Generate Santa Clara place list
-santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_map.graphml")
-santa_clara_arcfile = os.path.join("..", "graphs", "santa_clara", "santa_clara_arcs.tsv")
-santa_clara_popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
-santa_clara_popfile_nbr = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
-santa_clara_facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
-santa_clara_facfile_nbr = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
-santa_clara_pnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_popnodes.tsv")
-santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_facnodes.tsv")
-santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
+#santa_clara_mapfile = os.path.join("..", "maps", "santa_clara", "santa_clara_map.graphml")
+#santa_clara_arcfile = os.path.join("..", "graphs", "santa_clara", "santa_clara_arcs.tsv")
+#santa_clara_popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
+#santa_clara_popfile_nbr = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
+#santa_clara_facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
+#santa_clara_facfile_nbr = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
+#santa_clara_pnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_popnodes.tsv")
+#santa_clara_fnodefile = os.path.join("..", "graphs", "santa_clara", "santa_clara_facnodes.tsv")
+#santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
 #santa_clara_places = [{"county": c, "state": "California"} for c in SANTA_CLARA_NEIGHBORS] + [{"county": "Santa Clara", "state": "California"}]
 
 # Download: 501.8285789489746 seconds
@@ -666,4 +670,20 @@ santa_clara_distfile = os.path.join("..", "processed", "santa_clara", "santa_cla
 
 #graphml_to_tsv(santa_clara_mapfile, santa_clara_arcfile, weight="travel_time", directed=False)
 #map_node_locations(santa_clara_mapfile, santa_clara_popfile, santa_clara_pnodefile, santa_clara_facfile, santa_clara_fnodefile, popnbrfile=santa_clara_popfile_nbr, facnbrfile=santa_clara_facfile_nbr)
-distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
+#distance_file(santa_clara_arcfile, santa_clara_pnodefile, santa_clara_fnodefile, santa_clara_distfile, factor=10, multiplier=1.0/60)
+
+# Generate Polk place list
+polk_mapfile = os.path.join("..", "maps", "polk", "polk_map.graphml")
+#polk_arcfile = os.path.join("..", "graphs", "polk", "polk_arcs.tsv")
+#polk_popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+#polk_popfile_nbr = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
+#polk_facfile = os.path.join("..", "processed", "polk", "polk_fac.tsv")
+#polk_facfile_nbr = os.path.join("..", "processed", "polk", "polk_fac_nbr.tsv")
+#polk_pnodefile = os.path.join("..", "graphs", "polk", "polk_popnodes.tsv")
+#polk_fnodefile = os.path.join("..", "graphs", "polk", "polk_facnodes.tsv")
+#polk_distfile = os.path.join("..", "processed", "polk", "polk_dist.tsv")
+#polk_places = [{"county": c, "state": "Florida"} for c in POLK_NEIGHBORS] + [{"county": "Polk", "state": "Florida"}]
+
+# Download: 267.9547348022461 seconds
+# Edge speeds: 24.942673921585083 seconds
+#download_map_places(polk_mapfile, polk_places)
