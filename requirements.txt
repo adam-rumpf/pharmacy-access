@@ -8,7 +8,7 @@ colorama==0.4.6
 contourpy==1.0.7
 cycler==0.11.0
 Fiona==1.9.3
-fonttools==4.39.4
+fonttools==4.48.1
 geographiclib==2.0
 geopandas==0.13.0
 geopy==2.3.0
@@ -24,7 +24,7 @@ numpy==1.24.3
 osmnx==1.2.2
 packaging==23.1
 pandas==2.0.1
-Pillow==10.0.1
+pillow==10.2.0
 pyparsing==3.0.9
 pyproj==3.5.0
 python-dateutil==2.8.2
