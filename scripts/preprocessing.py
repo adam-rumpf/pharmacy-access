@@ -152,6 +152,105 @@ def time_string_to_minutes(ts):
 
 #------------------------------------------------------------------------------
 
+def _weekday_number(s):
+    """Maps day name strings to a standard Mon-Fri, Sat, Sun numerical order.
+    
+    Positional arguments:
+        s (str) -- Name of a weekday.
+    
+    Returns:
+        (int) -- 0 for Monday, 1 for Tuesday, ..., 4 for Friday, 5 for Saturday,
+            6 for Sunday, or None if the day is not recognized.
+    
+    Case does not matter. Abbreviated weekday names are also accepted.
+    """
+    
+    if "mon" in s.lower():
+        return 0
+    elif "tue" in s.lower():
+        return 1
+    elif "wed" in s.lower():
+        return 2
+    elif "thu" in s.lower():
+        return 3
+    elif "fri" in s.lower():
+        return 4
+    elif "sat" in s.lower():
+        return 5
+    elif "sun" in s.lower():
+        return 6
+    else:
+        return None
+
+#------------------------------------------------------------------------------
+
+def schedule_string_to_list(tlist):
+    """Converts a weekly schedule string to a list of daily hours.
+    
+    Positional arguments:
+        tlist (str) -- A string describing a weekly schedule of hours.
+    
+    Returns:
+        (tuple(float)) -- A tuple of times throughout the week during which the
+            facility is open. The tuple contains 7x24 = 168 elements describing,
+            in order, the facility's hours Mon, Tue, ..., Fri, Sat, Sun, and
+            within each day describing, in order, the fraction of the hour
+            00:00, 01:00, ..., 23:00 during which the facility is open, with 0.0
+            indicating closure during the entire hour and 1.0 indicating being
+            open during the entire hour.
+    
+    Capitalization does not matter. Different groups of days are expected to be
+    separated by commas, with each day group having the format:
+        [and] [[day 1]] - [[day 2]] [[time range]] [, [[time range]] ...]
+    """
+    
+    # Split string and normalize case
+    parts = tlist.lower().replace("and", "").split(',')
+    for i in range(len(parts)):
+        parts[i] = parts[i].strip()
+    
+    # Initialize schedule
+    schedule = [0.0 for i in range(168)]
+    
+    # Assign time ranges to days of the week
+    time_lists = [[] for i in range(7)] # Mon-Fri, Sat, Sun order
+    current = [False for i in range(7)] # which day(s) we're currently on
+    
+    # Process each part of the string
+    for part in parts:
+        # Separate day ranges from time ranges
+        pparts = re.search("^([a-z]*)[\s\-]*([a-z]*)\s?(.*)$",
+                           part.lower()).groups()
+        # Update current days
+        if "every" in pparts[0]:
+            for i in range(7):
+                current[i] = True
+        elif _weekday_number(pparts[0]) != None:
+            start = _weekday_number(pparts[0])
+            finish = start + 1
+            if _weekday_number(pparts[1]) != None:
+                finish = _weekday_number(pparts[1]) + 1
+            for i in range(7):
+                if i >= start and i < finish:
+                    current[i] = True
+                else:
+                    current[i] = False
+        # Get time range
+        (start, finish) = time_string_to_minutes(pparts[2])
+        # Enter time table entries for current days
+        for hr in range(24):
+            mn = hr*60
+            if mn >= finish or mn + 60 <= start:
+                continue
+            frac = (min(finish, mn + 60) - max(start, mn))/60.0
+            for i in range(7):
+                if current[i] == True:
+                    schedule[24*i + hr] = frac
+    
+    return schedule
+
+#------------------------------------------------------------------------------
+
 def pharmacy_table_coords(infile, outfile=None, user_agent=None):
     """Augments a pharmacy CSV file by adding latitude/longitude fields.
     
@@ -968,3 +1067,7 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #time_string_to_minutes("9 AM -1:30 PM")
 #time_string_to_minutes("12 AM - 11:59 PM")
 #time_string_to_minutes("12 AM - 12 AM")
+
+#schedule_string_to_list("Monday-Friday 9 AM - 6 PM")
+#schedule_string_to_list("Monday - Friday 8AM -1:30 PM, 2-10 PM, Saturday 9 AM -1:30 PM, 2-6 PM, and Sunday 10 AM - 1:30 PM, 2-6 PM")
+#schedule_string_to_list("Everyday 8 AM -9 PM")
