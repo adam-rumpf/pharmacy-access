@@ -1041,6 +1041,44 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
     # Generate facility neighbor file
     pharmacy_to_facility(fac_nbr_file, nbrfacfile, offset=index)
 
+#------------------------------------------------------------------------------
+
+def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv"),
+                 nbrpopfile=os.path.join("..", "processed", "polk",
+                                         "polk_pop_nbr.tsv")):
+    """Preprocessing scripts for the Polk County data.
+    
+    Keyword arguments:
+        popfile (str) -- Population output file path. Defaults to a file in the
+            processed/ directory named "polk_pop.tsv".
+        nbrpopfile (str) -- Population neighbor output file path. Defaults to a
+            file in the processed/ directory named "polk_pop_nbr.tsv".
+    """
+    
+    ### Additional outputs needed:
+    ### Pharmacy file
+    ### Pharmacy neighbor file
+    ### UC file
+    ### UC neighbor file
+    ### Pharmacy schedule
+    ### Pharmacy neighbor schedule
+    ### Pharmacy schedule abbreviated
+    ### Pharmacy neighbor schedule abbreviated
+    ### UC schedule
+    ### UC neighbor schedule
+    ### UC schedule abbreviated
+    ### UC neighbor schedule abbreviated
+    
+    # Define location-specific file names
+    svi_file = os.path.join("..", "data", "_general", "SVI2020_US.csv")
+    census_file = os.path.join("..", "data", "fl", "flgeo2020.pl")
+    urban_file = os.path.join("..", "data", "polk", "Urban-Rural-FL.csv")
+    
+    ### Additional inputs needed:
+    ### Polk pharmacy file
+    ### Polk neighbor pharmacy file
+    ### Urgent care file
+
 #==============================================================================
 # Execution
 #==============================================================================
