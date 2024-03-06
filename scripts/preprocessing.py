@@ -34,6 +34,10 @@ SANTA_CLARA_NEIGHBORS = ["Alameda", "Merced", "Monterey", "San Benito",
                          "San Francisco", "San Joaquin", "San Mateo",
                          "Santa Cruz", "Stanislaus"]
 
+# Counties neighboring Polk, FL
+POLK_NEIGHBORS = ["Hardee", "Highlands", "Hillsborough", "Lake", "Manatee",
+                  "Okeechobee", "Orange", "Osceola", "Pasco", "Sumter"]
+
 #==============================================================================
 # Common Functions
 #==============================================================================
@@ -96,6 +100,55 @@ def address_to_coords(address, geocoder=None):
     location = geocoder.geocode(address)
     
     return (location.latitude, location.longitude)
+
+#------------------------------------------------------------------------------
+
+def time_string_to_minutes(ts):
+    """Converts time strings of various formats to minutes since midnight.
+    
+    Positional arguments:
+        ts (str) -- A string indicating a time or time range.
+    
+    Returns:
+        (int|tuple(int)) -- An integer number of minutes since midnight, or a
+            tuple of minutes since midnight indicating the beginning and end of
+            a time range.
+    
+    Whitespace and capitalization do not matter. Acceptable formats and their
+    return types include:
+        #[:##]XM (int)
+        #[:##]-#[:##]XM (tuple(int))
+        #[:##]XM-#[:##]XM (tuple(int))
+    """
+    
+    # Split string and normalize case
+    parts = "".join(ts.lower().split()).split('-')
+    
+    if len(parts) == 1:
+        # If there is no dash, just process one part
+        (hr, mn, xm) = re.search("^(\d+):?(\d*)([ap]m)$", parts[0]).groups()
+        hr = int(hr)
+        if hr == 12:
+            hr = 0
+        mn = int("0" + mn)
+        if 'a' in xm:
+            xm = 0
+        else:
+            xm = 720
+        minutes = 60*hr + mn + xm
+        return minutes
+    else:
+        # Otherwise normalize and process both parts
+        if parts[0].isnumeric():
+            # Copy a missing AM/PM from the second part to the first part
+            xm = re.search("([ap]m)$", parts[1]).groups()[0]
+            parts[0] += xm
+        # Process each part separately
+        start = time_string_to_minutes(parts[0])
+        finish = time_string_to_minutes(parts[1])
+        if finish < 1:
+            finish = 1439 # cap at 11:59pm
+        return (start, finish)
 
 #------------------------------------------------------------------------------
 
@@ -904,4 +957,14 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 #address_test(os.path.join("..", "data", "santa_clara", "Santa_Clara_County_Neighbor_Pharmacies.csv"), outfile=os.path.join("..", "data", "santa_clara", "Report.txt"))
 
 #county_tract_info("Santa Clara", os.path.join("..", "data", "ca", "cageo2020.pl"))
-process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
+#process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), facfile=os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"))
+
+#time_string_to_minutes("9 AM")
+#time_string_to_minutes("9am")
+#time_string_to_minutes("9pm")
+#time_string_to_minutes("12:15 PM")
+#time_string_to_minutes("9 AM - 6 PM")
+#time_string_to_minutes("2-10 PM")
+#time_string_to_minutes("9 AM -1:30 PM")
+#time_string_to_minutes("12 AM - 11:59 PM")
+#time_string_to_minutes("12 AM - 12 AM")
