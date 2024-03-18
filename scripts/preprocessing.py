@@ -103,6 +103,134 @@ def address_to_coords(address, geocoder=None):
 
 #------------------------------------------------------------------------------
 
+def address_file_coords(infile, outfile):
+    """Appends coordinate fields to a file containing address fields.
+    
+    Positional arguments:
+        infile (str) -- File path of the address CSV file.
+        outfile (str) -- Name of the output file.
+    
+    The input file is searched for fields containing address, city, county,
+    state, and ZIP. A geocoder is then used to generate latitude and longitude
+    data. The output file consists of a copy of the input file, but with a
+    latitude and longitude field appended.
+    
+    If latitude and longitude fields are already present, only the addresses
+    lacking numerical latitude and longitude values will be geocoded.
+    """
+    
+    # Read input file as a CSV
+    with open(infile, 'r') as f:
+        reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Define fields
+    fields = reader[0].keys()
+    
+    # Try to find address field names
+    a1name = ""
+    a2name = ""
+    cname = ""
+    sname = ""
+    zname = ""
+    latname = ""
+    lonname = ""
+    for name in fields:
+        if "address" in name.lower() and "2" not in name:
+            a1name = name
+            continue
+        if "address" in name.lower() and "2" in name:
+            a2name = name
+            continue
+        if "city" in name.lower():
+            cname = name
+            continue
+        if "state" in name.lower():
+            sname = name
+            continue
+        if "zip" in name.lower():
+            zname = name
+            continue
+        if "lat" in name[:4].lower():
+            latname = name
+            continue
+        if "lon" in name[:4].lower():
+            lonname = name
+            continue
+    
+    # Determine whether to fill empty latitude and longitude fields
+    filling = False
+    if len(latname) > 0 and len(lonname) > 0:
+        filling = True
+    
+    # Initialize geocoder
+    try:
+        with open("email.txt", 'r') as f:
+            user_agent = f.read().strip().split()[0]
+    except FileNotFoundError:
+        user_agent = "user_agent"
+    gc = geopy.geocoders.Nominatim(user_agent=user_agent)
+    
+    # Generate coordinates for each row
+    i = 0
+    retries = [] # list of rows that caused errors
+    for row in tqdm.tqdm(reader):
+        i += 1
+        
+        # Skip filled fields if trying to fill new ones
+        if (filling and row[latname].replace('.','').replace('-','').isnumeric()
+            and row[lonname].replace('.','').replace('-','').isnumeric()):
+            continue
+        
+        # Get the address string
+        if len(a2name) > 0:
+            address = (row[a1name] + ", " + row[a2name] + ", " + row[cname]
+                       + ", " + row[sname] + " " + row[zname])
+        else:
+            address = (row[a1name] + ", " + row[cname] + ", " + row[sname] + " "
+                       + row[zname])
+        
+        # Geocode the address
+        try:
+            (lat, lon) = address_to_coords(address, gc)
+        except geopy.exc.GeocoderUnavailable:
+            retries.append(i)
+            (lat, lon) = (None, None)
+        except AttributeError:
+            retries.append(i)
+            (lat, lon) = (None, None)
+        time.sleep(1) # wait 1 second between Nominatim requests
+        
+        # Add fields to dictionary line
+        row["latitude"] = str(lat)
+        row["longitude"] = str(lon)
+    
+    if len(retries) > 0:
+        print("Errors in the following rows:\n" +
+              ", ".join([str(i) for i in retries]))
+    
+    del gc
+    
+    # Write the appended output file
+    with open(outfile, 'w') as f:
+        line = ""
+        for field in fields:
+            if ',' not in field:
+                line += field + ','
+            else:
+                line += '"' + field + '",'
+        f.write(line[:-1] + '\n')
+        for row in reader:
+            line = ""
+            for field in fields:
+                item = row[field]
+                if ',' not in item:
+                    line += item + ','
+                else:
+                    line += '"' + item + '",'
+            f.write(line[:-1] + '\n')
+
+#------------------------------------------------------------------------------
+
 def time_string_to_minutes(ts):
     """Converts time strings of various formats to minutes since midnight.
     
@@ -669,6 +797,86 @@ def filter_providers(ziplist, filterfile):
                              "min age": row["min_age_years"],
                              "latitude": row["latitude"],
                              "longitude": row["longitude"]})
+
+#------------------------------------------------------------------------------
+
+def uc_polk(counties, facfile, schedfile, abbrvfile=None, offset=0):
+    """Creates the initial urgent care files for Polk County and its neighbors.
+    
+    Positional arguments:
+        counties (list(str)) -- List of county names. Only facilities matching
+            one of these county names will be included in the output file.
+        facfile (str) -- File path to the main facility file.
+        schedfile (str) -- File path to an initial schedule file, containing the
+            complete week-long hourly schedule.
+    
+    Keyword arguments:
+        abbrvfile (str) -- Optional abbreviated schedule file path. Defaults to
+            None. If included, generates a schedule file that aggregates all
+            average weekday times and weekend times.
+        offset (int) -- Offset for the first row's index. Defaults to 0. It may
+            be desirable to set it to a different number if generating several
+            facility files in sequence.
+    
+    Returns:
+        (int) -- The index of the last row.
+    
+    The input urgent care file is the format expected from
+    Urgent_Care_Locator.csv. The output file includes data for the specified
+    county or list of counties, and includes a facility file with the fields:
+        id (index in urgent care facility list)
+        name (facility title)
+        lat (latitude)
+        lon (longitude)
+        cap (capacity, currently defaults to 1)
+    
+    The schedule file includes the ID and name fields from above, followed by
+    a complete list of time slots for every hour of every day of the week.
+    """
+    
+    # Define master provider file name and field indices
+    master_file = os.path.join("..", "data", "polk", "Urgent_Care_Locator.csv")
+    
+    # Read contents of master CSV file
+    with open(master_file, 'r') as f:
+        reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Initialize facility dictionary
+    fdic = dict()
+    
+    # Look up the address on each row
+    for row in dic:
+        
+        # Get facility name (removing tabs if needed)
+        fi = row["pharmacy name"].replace('\t', '')
+        
+        # Initialize empty entry for a new facility
+        fdic[fi] = [0 for i in range(3)]
+        
+        # Try to get coordinates
+        try:
+            fdic[fi][0] = row["latitude"]
+            fdic[fi][1] = row["longitude"]
+        except KeyError:
+            fdic[fi][0] = None
+            fdic[fi][1] = None
+        
+        ### Set capacity to 1
+        fdic[fi][2] = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #------------------------------------------------------------------------------
 
@@ -1267,4 +1475,7 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #schedule_string_to_list("Monday - Friday 8AM -1:30 PM, 2-10 PM, Saturday 9 AM -1:30 PM, 2-6 PM, and Sunday 10 AM - 1:30 PM, 2-6 PM")
 #schedule_string_to_list("Everyday 8 AM -9 PM")
 
-process_polk(deletemissingsvi=True)
+#address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"))
+address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"))
+#address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords_Backup.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords_Backup.csv"))
+#process_polk(deletemissingsvi=True)
