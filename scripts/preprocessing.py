@@ -1045,7 +1045,15 @@ def process_santa_clara(popfile=os.path.join("..", "processed", "santa_clara",
 
 def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv"),
                  nbrpopfile=os.path.join("..", "processed", "polk",
-                                         "polk_pop_nbr.tsv")):
+                                         "polk_pop_nbr.tsv"),
+                 pharmfile=os.path.join("..", "processed", "polk",
+                                        "polk_pharmacy.tsv"),
+                 nbrpharmfile=os.path.join("..", "processed", "polk",
+                                           "polk_pharmacy_nbr.tsv"),
+                 ucfile=os.path.join("..", "processed", "polk", "polk_uc.tsv"),
+                 nbrucfile=os.path.join("..", "processed", "polk",
+                                        "polk_uc_nbr.tsv"),
+                 deletemissingsvi=False):
     """Preprocessing scripts for the Polk County data.
     
     Keyword arguments:
@@ -1053,7 +1061,166 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
             processed/ directory named "polk_pop.tsv".
         nbrpopfile (str) -- Population neighbor output file path. Defaults to a
             file in the processed/ directory named "polk_pop_nbr.tsv".
+        pharmfile (str) -- Pharmacy facility output file path. Defaults to a
+            file in the processed/ directory named "polk_pharmacy.tsv".
+        nbrpharmfile (str) -- Pharmacy neighbor facility output file path.
+            Defaults to a file in the processed/ directory named
+            "polk_pharmacy_nbr.tsv".
+        ucfile (str) -- Urgent care facility output file path. Defaults to a
+            file in the processed/ directory named "polk_uc.tsv".
+        nbrucfile (str) -- Urgent care neighbor facility output file path.
+            Defaults to a file in the processed/ directory named
+            "polk_uc_nbr.tsv".
+        deletemissingsvi (bool) -- Whether to delete rows with missing SVI data.
+            Defaults to False. Missing fields are generally filled with -1.
     """
+    
+    # Define location-specific file names
+    svi_file = os.path.join("..", "data", "_general", "SVI2020_US.csv")
+    
+    census_file = os.path.join("..", "data", "fl", "flgeo2020.pl")
+    urban_file = os.path.join("..", "data", "polk", "Urban-Rural-FL.csv")
+    pharm_file = os.path.join("..", "data", "polk", "Pharmacy_Locator.csv")
+    pharm_nbr_file = os.path.join("..", "data", "polk",
+                                  "Pharmacy_Surrounding_Polk.csv")
+    urban_file = os.path.join("..", "data", "polk", "Urban-Rural-FL.csv")
+    uc_file = os.path.join("..", "data", "polk", "Urgent_Care_Locator.csv")
+    
+    # Define location-specific parameters
+    neighbors = POLK_NEIGHBORS
+    
+    # Gather population data from census file (leaving room for extra fields)
+    pdic = county_tract_info("Polk", census_file, append=[-1]*6)
+    
+    # Gather SVI fields
+    polk_fips = list(pdic.keys())[0][:5] # county's FIPS prefix
+    fields = ["RPL_THEMES", "EP_POV150", "EP_NOVEH"] # field names to gather
+    fieldids = [5, 7, 8] # corresponding columns in final table
+    fieldpercent = [7, 8] # fields to be converted from [0,100] to [0.0,1.0]
+    svi = county_svi(polk_fips, fields=fields) # SVI dictionary
+    for fips in pdic:
+        if fips in svi:
+            for i in range(len(svi[fips])):
+                pdic[fips][fieldids[i]] = svi[fips][i]
+                if fieldids[i] in fieldpercent:
+                    pdic[fips][fieldids[i]] /= 100.0
+    
+    del svi
+    
+    # Gather urban/rural fractions
+    with open(urban_file, 'r') as f:
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+        for row in reader:
+            # Find any and all FIPS codes that match the current row
+            prefix = row["GEOID"]
+            flist = []
+            for fips in pdic:
+                if fips[:len(prefix)] == prefix:
+                    flist.append(fips)
+            # Skip FIPS codes with no matches
+            if len(flist) < 1:
+                continue
+            # Assign urban fraction to all collected FIPS code
+            for fips in flist:
+                try:
+                    # Clamp fraction between 0.0 and 1.0
+                    u = min(max(float(row["urbanPercent"]), 0.0), 1.0)
+                    pdic[fips][6] = u
+                except ValueError:
+                    # Set missing fields to 0% urban
+                    pdic[fips][6] = 0.0
+    
+    # Set unknown tracts to 0% urban
+    for fips in pdic:
+        if pdic[fips][6] < 0:
+            pdic[fips][6] = 0.0
+    
+    # Delete entries with missing SVI fields
+    if deletemissingsvi == True:
+        rmfips = [] # keys to be removed
+        for fips in pdic:
+            # search for missing fields beyond the 4th
+            for field in pdic[fips][6:]:
+                if field < 0:
+                    rmfips.append(fips)
+                    continue
+        print(f"{len(rmfips)} fields removed due to missing data.")
+        for fips in rmfips:
+            del pdic[fips]
+    
+    # Write population output file
+    with open(popfile, 'w') as f:
+        f.write(POP_HEADER)
+        sk = sorted(pdic.keys())
+        index = 0
+        for i in range(len(sk)):
+            # Skip lines with no coordinates
+            if pdic[sk[i]][0] == 0 or pdic[sk[i]][1] == 0:
+                continue
+            line = str(index) + '\t' + str(sk[i]) + '\t'
+            for item in pdic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line[:-1] + '\n')
+            index += 1
+    
+    # Gather neighboring county data
+    pndic = county_tract_info(neighbors, census_file, append=[-1]*6)
+    
+    # Delete duplicates
+    for fips in pdic:
+        if fips in pndic:
+            del pndic[fips]
+    
+    # Gather neighbor urban/rural fractions
+    with open(urban_file, 'r') as f:
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+        for row in reader:
+            # Find any and all FIPS codes that match the current row
+            prefix = row["GEOID"]
+            flist = []
+            for fips in pndic:
+                if fips[:len(prefix)] == prefix:
+                    flist.append(fips)
+            # Skip FIPS codes with no matches
+            if len(flist) < 1:
+                continue
+            # Assign urban fraction to all collected FIPS code
+            for fips in flist:
+                try:
+                    # Clamp fraction between 0.0 and 1.0
+                    u = min(max(float(row["urbanPercent"]), 0.0), 1.0)
+                    pndic[fips][6] = u
+                except ValueError:
+                    # Set missing fields to 0% urban
+                    pndic[fips][6] = 0.0
+    
+    # Set unknown tracts to 0% urban
+    for fips in pndic:
+        if pndic[fips][6] < 0:
+            pndic[fips][6] = 0.0
+    
+    # Write population neighbor output file
+    with open(nbrpopfile, 'w') as f:
+        f.write(POP_HEADER)
+        sk = sorted(pndic.keys())
+        # "index" carries over from the main population file
+        for i in range(len(sk)):
+            # Skip lines with no coordinates
+            if pndic[sk[i]][0] == 0 or pndic[sk[i]][1] == 0:
+                continue
+            line = str(index) + '\t' + str(sk[i]) + '\t'
+            for item in pndic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line[:-1] + '\n')
+            index += 1
+    
+    del pdic
+    del pndic
+    
+    
+    
+    
+    
     
     ### Additional outputs needed:
     ### Pharmacy file
@@ -1068,16 +1235,6 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
     ### UC neighbor schedule
     ### UC schedule abbreviated
     ### UC neighbor schedule abbreviated
-    
-    # Define location-specific file names
-    svi_file = os.path.join("..", "data", "_general", "SVI2020_US.csv")
-    census_file = os.path.join("..", "data", "fl", "flgeo2020.pl")
-    urban_file = os.path.join("..", "data", "polk", "Urban-Rural-FL.csv")
-    
-    ### Additional inputs needed:
-    ### Polk pharmacy file
-    ### Polk neighbor pharmacy file
-    ### Urgent care file
 
 #==============================================================================
 # Execution
@@ -1109,3 +1266,5 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #schedule_string_to_list("Monday-Friday 9 AM - 6 PM")
 #schedule_string_to_list("Monday - Friday 8AM -1:30 PM, 2-10 PM, Saturday 9 AM -1:30 PM, 2-6 PM, and Sunday 10 AM - 1:30 PM, 2-6 PM")
 #schedule_string_to_list("Everyday 8 AM -9 PM")
+
+process_polk(deletemissingsvi=True)
