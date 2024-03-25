@@ -279,7 +279,7 @@ def time_string_to_minutes(ts):
         return minutes
     else:
         # Otherwise normalize and process both parts
-        if parts[0].isnumeric():
+        if parts[0][-1].isnumeric():
             # Copy a missing AM/PM from the second part to the first part
             xm = re.search("([ap]m)$", parts[1]).groups()[0]
             parts[0] += xm
@@ -994,6 +994,132 @@ def uc_polk(counties, facfile, schedfile, abbrvfile=None, offset=0,
 
 #------------------------------------------------------------------------------
 
+def pharmacy_polk(facfile, schedfile, abbrvfile=None, offset=0,
+                  deletenocoords=False):
+    """Creates the initial pharmacy files for Polk County.
+    
+    Positional arguments:
+        facfile (str) -- File path to the main facility file.
+        schedfile (str) -- File path to an initial schedule file, containing the
+            complete week-long hourly schedule.
+    
+    Keyword arguments:
+        abbrvfile (str) -- Optional abbreviated schedule file path. Defaults to
+            None. If included, generates a schedule file that aggregates all
+            average weekday times and weekend times.
+        offset (int) -- Offset for the first row's index. Defaults to 0. It may
+            be desirable to set it to a different number if generating several
+            facility files in sequence.
+        deletenocoords (bool) -- Whether to delete entries with missing
+            coordinates. Defaults to False.
+    
+    Returns:
+        (int) -- The index of the last row.
+    
+    The input pharmacy file is the format expected from Pharmacy_Locator.csv.
+    The output file includes data for the specified county or list of counties,
+    and includes a facility file with the fields:
+        id (index in urgent care facility list)
+        name (facility title)
+        lat (latitude)
+        lon (longitude)
+        cap (capacity, currently defaults to 1)
+    
+    The schedule file includes the ID and name fields from above, followed by
+    a complete list of time slots for every hour of every day of the week.
+    """
+    
+    # Define master provider file name and field indices
+    master_file = os.path.join("..", "data", "polk",
+                               "Pharmacy_Locator_Coords.csv")
+    
+    # Read contents of master CSV file
+    with open(master_file, 'r') as f:
+        reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
+    
+    # Initialize facility dictionaries
+    fdic = dict() # facility info
+    sdic = dict() # schdule info
+    sadic = dict() # abbreviated schedule info
+    
+    # Look up the address on each row
+    for row in reader:
+        
+        # Get facility name (removing tabs if needed)
+        fi = row["Name"].replace('\t', '')
+        
+        # Initialize empty entry for a new facility
+        fdic[fi] = [0 for i in range(3)]
+        
+        # Try to get coordinates
+        try:
+            fdic[fi][0] = float(row["latitude"])
+            fdic[fi][1] = float(row["longitude"])
+        except (KeyError, ValueError):
+            fdic[fi][0] = None
+            fdic[fi][1] = None
+            if deletenocoords == True:
+                del fdic[fi]
+                continue
+        
+        ### Set capacity to 1
+        fdic[fi][2] = 1
+        
+        # Convert schedule string to time slot list
+        tlist = schedule_string_to_list(row["Hours"])
+        
+        # Store time slots in schedule dictionary
+        sdic[fi] = tlist
+        
+        # Also store abbreviated schedule
+        if abbrvfile != None:
+            sadic[fi] = aggregate_schedule(tlist)
+    
+    # Generate pharmacy file
+    index = offset
+    with open(facfile, 'w') as f:
+        f.write(FAC_HEADER)
+        sk = sorted(fdic.keys())
+        for i in range(len(sk)):
+            line = str(index) + '\t' + str(sk[i]) + '\t'
+            for item in fdic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
+            index += 1
+    
+    # Generate schedule file
+    iindex = offset
+    with open(schedfile, 'w') as f:
+        f.write(SCHEDULE_HEADER)
+        sk = sorted(fdic.keys())
+        for i in range(len(sk)):
+            line = str(iindex) + '\t' + str(sk[i]) + '\t'
+            for item in sdic[sk[i]]:
+                line += str(item) + '\t'
+            f.write(line + '\n')
+            iindex += 1
+    
+    # Generate abbreviated schedule file
+    if abbrvfile != None:
+        iindex = offset
+        with open(abbrvfile, 'w') as f:
+            f.write(SCHEDULE_HEADER_ABBRV)
+            sk = sorted(fdic.keys())
+            for i in range(len(sk)):
+                line = str(iindex) + '\t' + str(sk[i]) + '\t'
+                for item in sadic[sk[i]]:
+                    line += str(item) + '\t'
+                f.write(line + '\n')
+                iindex += 1
+    
+    del fdic
+    del sdic
+    del sadic
+    
+    return index
+
+#------------------------------------------------------------------------------
+
 def pharmacy_to_facility(pharmfile, facfile, offset=0):
     """Converts a pharmacy data file into a standardized facility file.
     
@@ -1576,6 +1702,12 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
     uc_polk(neighbors, nbrucfile, scheducnbr, scheducabbrvnbr, offset=index,
             deletenocoords=deletenocoords)
     
+    # Generate pharmacy files
+    index = pharmacy_polk(pharmfile, schedpharm, schedpharmabbrv, offset=0,
+                          deletenocoords=deletenocoords)
+###    pharmacy_polk(nbrpharmfile, schedpharmnbr, schedpharmabbrvnbr, offset=index,
+###                  deletenocoords=deletenocoords)
+    
     
     
     
@@ -1621,6 +1753,6 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #schedule_string_to_list("Everyday 8 AM -9 PM")
 
 #address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"))
-#address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"))
-#address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords_Backup.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords_Backup.csv"))
+#address_file_coords(os.path.join("..", "data", "polk", "Pharmacy_Locator.csv"), os.path.join("..", "data", "polk", "Pharmacy_Locator_Coords.csv"))
+#address_file_coords(os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk.csv"), os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk_Coords.csv"))
 process_polk(deletemissingsvi=True, deletenocoords=True)
