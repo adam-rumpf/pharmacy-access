@@ -11,6 +11,7 @@ for each location.
 
 import configparser
 import csv
+import os
 import os.path
 import re
 import time
@@ -511,6 +512,44 @@ def pharmacy_table_coords(infile, outfile=None, user_agent=None):
         writer.writeheader()
         for row in pdic:
             writer.writerow(row)
+
+#------------------------------------------------------------------------------
+
+def _append_files(infile1, infile2, outfile, delete=False):
+    """Appends two files with corresponding columns.
+    
+    Positional arguments:
+        infile1 (str) -- Path to the first (top) input file.
+        infile2 (str) -- Path to the second (bottom) input file.
+        outfile (str) -- Path to the output file.
+    
+    Keyword arguments:
+        delete (bool) -- Whether to delete both input files. Defaults to False.
+    
+    Both input files must contain identical labeled columns.
+    """
+    
+    # Read both input files
+    with open(infile1, 'r') as f:
+        s1 = f.read().strip().split('\n')
+    with open(infile2, 'r') as f:
+        s2 = f.read().strip().split('\n')
+    
+    # Compare their first lines
+    if s1[0] != s2[0]:
+        raise ValueError("appended files must have the same columns")
+    
+    # Delete files if needed
+    if delete == True:
+        os.remove(infile1)
+        os.remove(infile2)
+    
+    # Write combined file
+    with open(outfile, 'w') as f:
+        for line in s1:
+            f.write(line.strip() + '\n')
+        for line in s2[1:]:
+            f.write(line.strip() + '\n')
 
 #------------------------------------------------------------------------------
 
@@ -1643,18 +1682,10 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
                                          "polk_schedule_pharmacy.tsv"),
                  schedpharmabbrv=os.path.join("..", "processed", "polk",
                                             "polk_schedule_abbrv_pharmacy.tsv"),
-                 schedpharmnbr=os.path.join("..", "processed", "polk",
-                                            "polk_schedule_pharmacy_nbr.tsv"),
-                 schedpharmabbrvnbr=os.path.join("..", "processed", "polk",
-                                        "polk_schedule_abbrv_pharmacy_nbr.tsv"),
                  scheduc=os.path.join("..", "processed", "polk",
                                       "polk_schedule_uc.tsv"),
                  scheducabbrv=os.path.join("..", "processed", "polk",
                                            "polk_schedule_abbrv_uc.tsv"),
-                 scheducnbr=os.path.join("..", "processed", "polk",
-                                         "polk_schedule_uc_nbr.tsv"),
-                 scheducabbrvnbr=os.path.join("..", "processed", "polk",
-                                              "polk_schedule_abbrv_uc_nbr.tsv"),
                  deletemissingsvi=False, deletenocoords=False):
     """Preprocessing scripts for the Polk County data.
     
@@ -1678,14 +1709,8 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
         schedpharmabbrv (str) -- Abbreviated version of pharmacy schedule
             file. Defaults to a file in the processed/ directory named
             "polk_schedule_abbrv_pharmacy.tsv".
-        schedpharmnbr (str) -- Pharmacy neigbhor schedule file. Defaults to a
-            file in the processed/ directory named
-            "polk_schedule_pharmacy_nbr.tsv".
-        schedpharmabbrvnbr (str) -- Abbreviated version of pharmacy neighbor
-            schedule file. Defaults to a file in the processed/ directory named
-            "polk_schedule_abbrv_pharmacy_nbr.tsv".
-        scheduc, scheducabbrv, scheducnbr, scheducabbrvnbr (str) -- Equivalent
-            to the four above fields, but for urgent care files.
+        scheduc, scheducabbrv (str) -- Equivalent to the two above fields, but
+            for urgent care files.
         deletemissingsvi (bool) -- Whether to delete rows with missing SVI data.
             Defaults to False. Missing fields are generally filled with -1.
         deletenocoords (bool) -- Whether to delete rows with missing
@@ -1837,14 +1862,18 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
     # Generate urgent care files
     index = uc_polk(["Polk"], ucfile, scheduc, scheducabbrv, offset=0,
                     deletenocoords=deletenocoords)
-    uc_polk(neighbors, nbrucfile, scheducnbr, scheducabbrvnbr, offset=index,
+    uc_polk(neighbors, nbrucfile, "temp1.tsv", "temp2.tsv", offset=index,
             deletenocoords=deletenocoords)
+    _append_files(scheduc, "temp1.tsv", scheduc, delete=True)
+    _append_files(scheducabbrv, "temp2.tsv", scheducabbrv, delete=True)
     
     # Generate pharmacy files
     index = pharmacy_polk(pharmfile, schedpharm, schedpharmabbrv, offset=0,
                           deletenocoords=deletenocoords)
-    pharmacy_polk_neighbor(nbrpharmfile, schedpharmnbr, schedpharmabbrvnbr,
+    pharmacy_polk_neighbor(nbrpharmfile, "temp1.tsv", "temp2.tsv",
                            offset=index, deletenocoords=deletenocoords)
+    _append_files(schedpharm, "temp1.tsv", schedpharm, delete=True)
+    _append_files(schedpharmabbrv, "temp2.tsv", schedpharmabbrv, delete=True)
 
 #==============================================================================
 # Execution
@@ -1880,5 +1909,4 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #address_file_coords(os.path.join("..", "data", "polk", "Urgent_Care_Locator.csv"), os.path.join("..", "data", "polk", "Urgent_Care_Locator_Coords.csv"))
 #address_file_coords(os.path.join("..", "data", "polk", "Pharmacy_Locator.csv"), os.path.join("..", "data", "polk", "Pharmacy_Locator_Coords.csv"))
 #address_file_coords(os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk.csv"), os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk_Coords.csv"))
-#process_polk(deletemissingsvi=True, deletenocoords=True)
-#process_polk(deletemissingsvi=True, deletenocoords=True)
+process_polk(deletemissingsvi=True, deletenocoords=True)

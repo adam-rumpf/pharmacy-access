@@ -10,13 +10,9 @@ polk/
     polk_pop.tsv
     polk_pop_nbr.tsv
     polk_schedule_abbrv_pharmacy.tsv
-    polk_schedule_abbrv_pharmacy_nbr.tsv
     polk_schedule_abbrv_uc.tsv
-    polk_schedule_abbrv_uc_nbr.tsv
     polk_schedule_pharmacy.tsv
-    polk_schedule_pharmacy_nbr.tsv
     polk_schedule_uc.tsv
-    polk_schedule_uc_nbr.tsv
     polk_uc.tsv
     polk_uc_nbr.tsv
 santa_clara/
