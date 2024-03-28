@@ -197,22 +197,29 @@ def _augment_file(outfile, infile, column, label, default="-1"):
     element to the end of each row corresponding to that row's index.
     """
     
+    # Append new columns to input file lines
+    with open(infile, 'r') as f:
+        lines = ""
+        
+        for line in f:
+            
+            # Copy header with new column label
+            if line[0].isdigit() == False:
+                lines += line.strip() + '\t' + label + '\n'
+                continue
+            
+            # Append the new column element to the following rows
+            i = int(line.split('\t')[0]) # current row index
+            if i in column:
+                c = column[i] # dictionary element of current line
+            else:
+                c = default # default element for missing indices
+            lines += line.strip() + '\t' + str(c) + '\n'
+    
+    # Write output file
     with open(outfile, 'w') as f:
-        with open(infile, 'r') as g:
-            for line in g:
-                
-                # Copy header with a new column label
-                if line[0].isdigit() == False:
-                    f.write(line.strip() + "\t" + label + "\t\n")
-                    continue
-                
-                # Append the new column element to the following rows
-                i = int(line.split('\t')[0]) # current row index
-                if i in column:
-                    c = column[i] # dictionary element of current line
-                else:
-                    c = default # default element for missing indices
-                f.write(line.strip() + '\t' + str(c) + "\t\n")
+        for line in lines:
+            f.write(line)
 
 #------------------------------------------------------------------------------
 
@@ -480,7 +487,7 @@ def _gravity_metric_file(popfile, facfile, distfile, beta=1.0, popnbrfile=None,
 
 def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
                cutoff=30.0, popnbrfile=None, facnbrfile=None, crowding=True,
-               piecewise=0.5, speed=45.0):
+               piecewise=0.5, speed=45.0, schedfile=None):
     """Computes a table of 2SFCA metrics for a given community.
     
     Positional arguments:
@@ -517,6 +524,11 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
         speed (float) -- Assumed travel speed (mph). Defaults to 45.0. Only
             needed if using geodesic distance, since otherwise the distance
             file directly provides the travel times.
+        schedfile (str) -- Schedule file, containing a row for each facility
+            and columns to indicate availability during various time slots.
+            Defaults to None. If a schedule file is included, the output file
+            formats are changed to include multiple crowding/access columns to
+            correspond to each time slot.
     
     This function implements the two-step floating catchment area (2SFCA)
     metric as described in Luo and Wang 2003 (doi:10.1068/b29120). We begin by
@@ -573,6 +585,17 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
         
         d_0 = u_i*d_U + (1-u_i)*d_R
     
+    Optionally, schedule files can also be included. A schedule file should
+    contain a row for each facility and a sequence of columns corresponding to
+    different time slots, with each entry being a float between 0.0 and 1.0
+    indicating the fraction of that time slot during which the facility is
+    open. Each facility's capacity will be weighted by that amount (e.g. 0.0
+    indicates complete closure and zero capacity, 1.0 indicates full capacity,
+    and 0.5 indicates being open during half the time slot and thus half
+    capacity). Including such a schedule file changes the facility and
+    population file output formats to include multiple crowding or access
+    columns: one for each time slot.
+    
     The output files are augmented versions of the input files, with a new
     column of crowdedness or accessibility metrics appended to the original
     tables.
@@ -585,28 +608,62 @@ def fca_metric(poutfile, foutfile, popfile, facfile, distfile=None,
                                             facnbrfile=facnbrfile,
                                             crowding=crowding,
                                             piecewise=piecewise,
-                                            speed=speed)
+                                            speed=speed,
+                                            schedfile=schedfile)
     else:
         (fmet, pmet) = _fca_metric_file(popfile, facfile, distfile,
                                         cutoff=cutoff, popnbrfile=popnbrfile,
                                         facnbrfile=facnbrfile,
                                         crowding=crowding,
-                                        piecewise=piecewise)
+                                        piecewise=piecewise,
+                                        schedfile=schedfile)
+    
+    # Get list of schedule time slots
+    if schedfile == None:
+        slots = ["crowding"]
+        for i in pmet:
+            pmet[i] = [pmet[i]]
+        for j in fmet:
+            fmet[j] = [fmet[j]]
+    else:
+        sdic = _read_schedfile(schedfile)
+        slots = list(sdic.keys())
+        for i in range(len(slots)):
+            slots[i] = "crowding_" + slots[i]
+        del sdic
     
     # Write facility output file with a new crowdedness metric column
-    if crowding == True:
+    if crowding == True or schedfile != None:
         print("Writing facility metric file.")
-        _augment_file(foutfile, facfile, fmet, "crowding")
+        for k in range(len(slots)):
+            col = dict() # new column of entries
+            for j in fmet:
+                col[j] = fmet[j][k]
+            if k == 0:
+                _augment_file(foutfile, facfile, col, slots[k])
+            else:
+                _augment_file(foutfile, foutfile, col, slots[k])
+  
+    # Update column labels
+    for i in range(len(slots)):
+        slots[i] = slots[i].replace("crowding", "access")
     
     # Write population output file with a new accessibility metric column
     print("Writing population metric file.")
-    _augment_file(poutfile, popfile, pmet, "access")
+    for k in range(len(slots)):
+        col = dict() # new column of entries
+        for i in pmet:
+            col[i] = pmet[i][k]
+        if k == 0:
+            _augment_file(poutfile, popfile, col, slots[k])
+        else:
+            _augment_file(poutfile, poutfile, col, slots[k])
 
 #------------------------------------------------------------------------------
 
 def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
                          facnbrfile=None, crowding=True, piecewise=0.5,
-                         speed=45.0):
+                         speed=45.0, schedfile=None):
     """The geodesic distance version of fca_metric.
     
     This script computes 2SFCA metrics using geodesic distances computed as-
@@ -617,6 +674,11 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
     Geodesic distances are used to compute travel times in minutes, assuming a
     constant speed (in mph).
     """
+    
+    ### Schedule file support not yet included
+    if schedfile == None:
+        raise NotImplementedError("schedule files not implemented for geodesic"
+                                  + " metrics")
     
     # Convert speed to miles per minute
     speed /= 60.0
@@ -694,13 +756,24 @@ def _fca_metric_geodesic(popfile, facfile, cutoff=30.0, popnbrfile=None,
 #------------------------------------------------------------------------------
 
 def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
-                     facnbrfile=None, crowding=True, piecewise=0.5):
+                     facnbrfile=None, crowding=True, piecewise=0.5,
+                     schedfile=None):
     """The distance file version of gravity_metric.
     
-    This script computes gravity metrics using a predefined distance file. It
-    is automatically called by gravity_metric when a distance file is provided.
+    This script computes FCA metrics using a predefined distance file. It
+    is automatically called by fca_metric when a distance file is provided.
     It returns dictionaries of facility and population metrics rather than
     writing the results directly to a file.
+    
+    If "crowding" is set to False, the metrics produced are equivalent to
+    simple counts of facilities (weighted by capacity and possibly also
+    schedule availability).
+    
+    The output facility and population dictionaries both include an entry for
+    each facility or population ID defined in the input files. Each dictionary
+    entry is a list of crowding or accessibility metrics, respectively, for each
+    time listed in the schedule file (or just a list with a single element if
+    no schedule file was specified).
     """
     
     # Read population file
@@ -755,35 +828,63 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
             s = line.strip().split()
             dist[(int(s[0]), int(s[1]))] = float(s[2])
     
-    # Compute the facility crowdedness metrics
-    fmet = dict() # facility crowdedness metrics by facfile index
-    if crowding == True:
-        print("Computing facility crowdedness metrics using distance file.")
-        for j in tqdm.tqdm(cap):
-            p = 0 # total population in range
-            for k in pop:
-                d = dist[(k,j)] # travel time (min)
-                if d <= d0[k]:
-                    p += pop[k]
-            if p > 0:
-                fmet[j] = cap[j]/p
-            else:
-                fmet[j] = -1
+    # Attempt to read schedule file (if any)
+    if schedfile != None:
+        # Read schedule file
+        sdic = _read_schedfile(schedfile) # dict of dicts of availabilities
+        slots = list(sdic.keys()) # list of time slot names
     else:
+        # Construct dummy schedule dictionaries if no file is present
+        slots = ["0"]
+        sdic = {"0" : dict()}
         for j in cap:
-            fmet[j] = cap[j]
+            sdic["0"][j] = 1.0
     
-    # Compute the population accessibility metrics
-    pmet = dict() # population accessibility metrics by popfile index
+    # Define crowding metrics for each time slot
+    fmet = dict() # facility crowdedness metrics by facfile index
+    for j in cap:
+        fmet[j] = []
+    print("Computing facility crowdedness metrics using distance file.")
+    for i in range(len(slots)):
+        
+        if crowding == True:
+            for j in cap:
+                p = 0 # total population in range
+                for k in pop:
+                    d = dist[(k,j)] # travel time (min)
+                    if d <= d0[k]:
+                        p += pop[k]
+                if p > 0:
+                    fmet[j] += [cap[j]/p] # capacity over population
+                else:
+                    fmet[j] += [-1]
+                fmet[j][-1] *= sdic[slots[i]][j] # schedule adjustment
+        else:
+            for j in cap:
+                fmet[j] += [cap[j]] # facility capacity (if no crowding)
+                fmet[j][-1] *= sdic[slots[i]][j] # schedule adjustment
+    
+    # Define accessibility metrics for each facility crowding metric
+    pmet = dict() # population accessibility metric list by popfile index
+    for i in pop:
+        pmet[i] = []
     print("Computing population accessibility metrics using distance file.")
-    for i in tqdm.tqdm(pop):
-        pmet[i] = 0.0
-        for j in cap:
-            if fmet[j] < 0:
-                continue
-            d = dist[(i,j)] # travel time (min)
-            if d <= d0[i]:
-                pmet[i] += fmet[j]
+    for k in tqdm.tqdm(range(len(slots))):
+        for i in pop:
+            pmet[i] += [0.0] # append a new metric
+            for j in cap:
+                if fmet[j][k] < 0:
+                    continue
+                d = dist[(i,j)] # travel time (min)
+                if d <= d0[i]:
+                    pmet[i][-1] += fmet[j][k]
+    
+    # If no schedule file was included, return floats instead of lists
+    if schedfile == None:
+        for j in fkeys:
+            fmet[j] = fmet[j][0]
+        for i in pop:
+            pmet[i] = pmet[i][0]
     
     # Return facility and population metric dictionaries (original indices only)
     return ({k: fmet[k] for k in fkeys}, {k: pmet[k] for k in pkeys})
@@ -845,27 +946,72 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
 
 # Polk County urgent care access
 
-popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
-popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
-facfile = os.path.join("..", "processed", "polk", "polk_uc.tsv")
-facnbrfile = os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv")
-distfile = os.path.join("..", "processed", "polk", "polk_dist_uc.tsv")
-schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv")
-schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc.tsv")
-schedfilefullnbr = os.path.join("..", "processed", "polk", "polk_schedule_uc_nbr.tsv")
-schedfileabbrvnbr = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc_nbr.tsv")
+#popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+#popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
 
-#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_convex.tsv")
-#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_convex.tsv")
-#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_cutoff_50.tsv")
-#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_cutoff_50.tsv")
-#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.5, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_cutoff_25.tsv")
-#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_cutoff_25.tsv")
-#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.25, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_cutoff_75.tsv")
-#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_cutoff_75.tsv")
-#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.75, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#facfile = os.path.join("..", "processed", "polk", "polk_uc.tsv")
+#facnbrfile = os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv")
+#distfile = os.path.join("..", "processed", "polk", "polk_dist_uc.tsv")
+#schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv")
+#schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc.tsv")
 
-_read_schedfile(schedfilefull)
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_15-cutoff_noschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_15-cutoff_noschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=15.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=None)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_15-cutoff_fullschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_15-cutoff_fullschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=15.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfilefull)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_15-cutoff_abbrvschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_15-cutoff_abbrvschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=15.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfileabbrv)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_30-cutoff_noschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_30-cutoff_noschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=None)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_30-cutoff_fullschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_30-cutoff_fullschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfilefull)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_30-cutoff_abbrvschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_30-cutoff_abbrvschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfileabbrv)
+
+#------------------------------------------------------------------------------
+
+# Polk County pharmacy access
+
+#popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+#popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
+
+#facfile = os.path.join("..", "processed", "polk", "polk_pharmacy.tsv")
+#facnbrfile = os.path.join("..", "processed", "polk", "polk_pharmacy_nbr.tsv")
+#distfile = os.path.join("..", "processed", "polk", "polk_dist_pharmacy.tsv")
+#schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv")
+#schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_pharmacy.tsv")
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_15-cutoff_noschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_15-cutoff_noschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=15.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=None)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_15-cutoff_fullschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_15-cutoff_fullschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=15.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfilefull)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_15-cutoff_abbrvschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_15-cutoff_abbrvschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=15.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfileabbrv)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_30-cutoff_noschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_30-cutoff_noschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=None)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_30-cutoff_fullschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_30-cutoff_fullschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfilefull)
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_30-cutoff_abbrvschedule.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_30-cutoff_abbrvschedule.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfileabbrv)
