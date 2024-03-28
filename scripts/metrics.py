@@ -23,6 +23,7 @@ POP_LON = 3 # population longitude
 POP_POP = 4 # population total population value
 POP_SVI = 7 # population SVI ranking
 POP_URBAN = 8 # population urban fraction
+SCHED_OFFSET = 2 # first column of the schedule file to contain time info
 
 #==============================================================================
 # Common Functions
@@ -50,9 +51,6 @@ def _read_popfile(popfile):
         popfile (str) -- Preprocessed population file path, which should
             include the coordinates and population of each population
             center.
-    
-    Keyword arguments:
-        nbr (bool) -- Whether
     
     Returns:
         pop (dict(int)) -- Dictionary of population counts.
@@ -126,6 +124,54 @@ def _read_facfile(facfile):
             coord[int(s[0])] = (float(s[FAC_LAT]), float(s[FAC_LON]))
     
     return (cap, coord)
+
+#------------------------------------------------------------------------------
+
+def _read_schedfile(schedfile):
+    """Reads a schedule file and returns dictionaries of data.
+    
+    Positional arguments:
+        schedfile (str) -- Preprocessed schedule file path, which should
+            include columns indicating the fraction of each time slot during
+            which a facility is open.
+    
+    Returns:
+        sched (dict(dict(float))) -- Dictionary of dictionaries of time slot
+            availability numbers.
+    
+    The returned dictionary contains one entry for every time slot specified
+    in the schedule file, indexed by the name of the time slot. Each entry is,
+    itself, a dictionary, indexed by facility ID and containing the fraction of
+    that time slot during which that facility is open.
+    """
+    
+    # Initialize dictionaries
+    sched = dict() # dictionary of dictionaries of schedule items
+    
+    # Read file
+    with open(schedfile, 'r') as f:
+        
+        first = True
+        slots = []
+        
+        for line in f:
+            
+            # Gather the time slot names from the first line
+            if first == True:
+                first = False
+                # Initialize a dictionary entry for each time slot
+                slots = line.strip().split('\t')[SCHED_OFFSET:]
+                for slot in slots:
+                    sched[slot] = dict()
+                continue
+            
+            # Read the availability numbers for the current facility
+            s = line.strip().split('\t')
+            id = int(s[0])
+            for i in range(len(slots)):
+                sched[slots[i]][id] = float(s[i+SCHED_OFFSET])
+    
+    return sched
 
 #------------------------------------------------------------------------------
 
@@ -758,11 +804,11 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
 #for cutoff in co:
 #    fca_metric(os.path.join("..", "results", "santa_clara", "santa_clara_pop_cutoff_nocrowding_" + co[cutoff] + ".tsv"), os.path.join("..", "results", "santa_clara", "santa_clara_fac_cutoff_nocrowding_" + co[cutoff] + ".tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv"), os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv"), distfile=None, cutoff=cutoff, crowding=False)
 
-popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
-popnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
-facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
-facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
-distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
+#popfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop.tsv")
+#popnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_pop_nbr.tsv")
+#facfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac.tsv")
+#facnbrfile = os.path.join("..", "processed", "santa_clara", "santa_clara_fac_nbr.tsv")
+#distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv")
 
 #poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_gravity_1-00_geo.tsv")
 #foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_gravity_1-00_geo.tsv")
@@ -780,17 +826,46 @@ distfile = os.path.join("..", "processed", "santa_clara", "santa_clara_dist.tsv"
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True)
 #poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_geo_nocrowding.tsv")
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_convex.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_convex.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_convex.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_convex.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
 #poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_030_tt_nocrowding.tsv")
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_50.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_50.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.5, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_25.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_25.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.25, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
-poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_75.tsv")
-foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_75.tsv")
-fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.75, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_50.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_50.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.5, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_25.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_25.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.25, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "santa_clara", "santa_clara_pop_fca_015-030_cutoff_75.tsv")
+#foutfile = os.path.join("..", "results", "santa_clara", "santa_clara_fac_fca_015-030_cutoff_75.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.75, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+
+#------------------------------------------------------------------------------
+
+# Polk County urgent care access
+
+popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
+facfile = os.path.join("..", "processed", "polk", "polk_uc.tsv")
+facnbrfile = os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv")
+distfile = os.path.join("..", "processed", "polk", "polk_dist_uc.tsv")
+schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv")
+schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc.tsv")
+schedfilefullnbr = os.path.join("..", "processed", "polk", "polk_schedule_uc_nbr.tsv")
+schedfileabbrvnbr = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc_nbr.tsv")
+
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_convex.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_convex.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_cutoff_50.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_cutoff_50.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.5, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_cutoff_25.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_cutoff_25.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.25, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+#poutfile = os.path.join("..", "results", "polk", "polk_pop_fca_015-030_cutoff_75.tsv")
+#foutfile = os.path.join("..", "results", "polk", "polk_fac_fca_015-030_cutoff_75.tsv")
+#fca_metric(poutfile, foutfile, popfile, facfile, cutoff=(15.0, 30.0), piecewise=0.75, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=True, distfile=distfile)
+
+_read_schedfile(schedfilefull)
