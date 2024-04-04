@@ -9,6 +9,11 @@ ca/
     cageo2020.pl
 fl/
     flgeo2020.pl
+polk/
+    Pharmacy_Locator.csv
+    Pharmacy_Surrounding_Polk.csv
+    Urban-Rural-FL.csv
+    Urgent_Care_Locator.csv
 santa_clara/
     CA_2020_ADI_Census_Block_Group_v3.2.csv
     COVID-19_Vaccination_among_County_Residents_by_Census_Tract.csv
@@ -31,6 +36,13 @@ The files for each location, along with their sources, are explained below.
 ## FL (Florida)
 
 * [`flgeo2020.pl`](https://www2.census.gov/programs-surveys/decennial/2020/data/01-Redistricting_File--PL_94-171/): Analogous to `cageo2020.pl` described [above](#ca-california), but for Florida.
+
+## Polk County
+
+* `Pharmacy_Locator.csv`: Manually-gathered pharmacy facility locations and hours from within Polk County. Fields include, respectively: name, address, city, county, state, ZIP, phone, hours (Days X XM - X:XX XM).
+* `Pharmacy_Surrounding_Polk.csv`: Manually-gathered pharmacy facility locations and hours from the counties bordering Polk County. Fields include, respectively: name, address, city, county, state, ZIP, Monday hours (X:XX XM - X:XX XM), Tuesday hours, Wednesday hours, Thursday hours, Friday hours, Saturday hours, and Sunday hours.
+* `Urban-Rural-FL.csv`: Analogous to `santa_clara_urban.csv` described [below](#santa-clara-county).
+* `Urgent_Care_Locator.csv`: Manually-gathered urgent care facility locations and hours from Polk and surrounding counties. Fields are the same as those listed for `Pharmacy_Surrounding_Polk.csv` above.
 
 ## Santa Clara County
 

@@ -730,16 +730,31 @@ def distance_file(arcfile, pnodefile, fnodefile, distfile, factor=10,
 
 # Generate Polk place list
 polk_mapfile = os.path.join("..", "maps", "polk", "polk_map.graphml")
-#polk_arcfile = os.path.join("..", "graphs", "polk", "polk_arcs.tsv")
-#polk_popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
-#polk_popfile_nbr = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
-#polk_facfile = os.path.join("..", "processed", "polk", "polk_fac.tsv")
-#polk_facfile_nbr = os.path.join("..", "processed", "polk", "polk_fac_nbr.tsv")
-#polk_pnodefile = os.path.join("..", "graphs", "polk", "polk_popnodes.tsv")
-#polk_fnodefile = os.path.join("..", "graphs", "polk", "polk_facnodes.tsv")
-#polk_distfile = os.path.join("..", "processed", "polk", "polk_dist.tsv")
 #polk_places = [{"county": c, "state": "Florida"} for c in POLK_NEIGHBORS] + [{"county": "Polk", "state": "Florida"}]
 
 # Download: 267.9547348022461 seconds
 # Edge speeds: 24.942673921585083 seconds
 #download_map_places(polk_mapfile, polk_places)
+
+# Common Polk map files
+polk_popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+polk_popfile_nbr = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
+polk_pnodefile = os.path.join("..", "graphs", "polk", "polk_popnodes.tsv")
+polk_arcfile = os.path.join("..", "graphs", "polk", "polk_arcs.tsv")
+#graphml_to_tsv(polk_mapfile, polk_arcfile, weight="travel_time", directed=False)
+
+# Urgent care map
+#polk_uc_facfile = os.path.join("..", "processed", "polk", "polk_uc.tsv")
+#polk_uc_facfile_nbr = os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv")
+#polk_uc_fnodefile = os.path.join("..", "graphs", "polk", "polk_uc_facnodes.tsv")
+#polk_uc_distfile = os.path.join("..", "processed", "polk", "polk_dist_uc.tsv")
+#map_node_locations(polk_mapfile, polk_popfile, polk_pnodefile, polk_uc_facfile, polk_uc_fnodefile, popnbrfile=polk_popfile_nbr, facnbrfile=polk_uc_facfile_nbr)
+#distance_file(polk_arcfile, polk_pnodefile, polk_uc_fnodefile, polk_uc_distfile, factor=10, multiplier=1.0/60)
+
+# Pharmacy map
+polk_pharm_facfile = os.path.join("..", "processed", "polk", "polk_pharmacy.tsv")
+polk_pharm_facfile_nbr = os.path.join("..", "processed", "polk", "polk_pharmacy_nbr.tsv")
+polk_pharm_fnodefile = os.path.join("..", "graphs", "polk", "polk_pharm_facnodes.tsv")
+polk_pharm_distfile = os.path.join("..", "processed", "polk", "polk_dist_pharmacy.tsv")
+#map_node_locations(polk_mapfile, polk_popfile, polk_pnodefile, polk_pharm_facfile, polk_pharm_fnodefile, popnbrfile=polk_popfile_nbr, facnbrfile=polk_pharm_facfile_nbr)
+#distance_file(polk_arcfile, polk_pnodefile, polk_pharm_fnodefile, polk_pharm_distfile, factor=10, multiplier=1.0/60)
