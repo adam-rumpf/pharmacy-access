@@ -985,7 +985,7 @@ schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc
 # 15-30 minute convex combination by urban/rural split
 # 15-30 minute cutoff if more than 50% urban
 
-trialnames = ["15-cutoff.tsv", "30-cutoff.tsv", "15-30-urban-convex.tsv", "15-30-urban-piecewise.tsv"]
+cutoffnames = ["15-cutoff", "30-cutoff", "15-30-urban-convex", "15-30-urban-piecewise"]
 cutoffs = [15.0, 30.0, (15.0, 30.0), (15.0, 30.0)]
 piecewise = [None, None, None, 0.5]
 
@@ -994,12 +994,13 @@ piecewise = [None, None, None, 0.5]
 # Abbreviated
 
 schedules = [None, schedfileabbrv]
+schednames = ["all-times", "day-type-times"]
 
-for i in range(len(trialnames)):
-    for sched in schedules:
-        poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_" + trialnames[i])
-        foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_" + trialnames[i])
-        fca_metric(poutfile, foutfile, popfile, facfile, cutoff=cutoffs[i], piecewise=piecewise[i], popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=sched)
+for i in range(len(cutoffnames)):
+    for j in range(len(schedules)):
+        poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_" + cutoffnames[i] + '_' + schednames[j] + ".tsv")
+        foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_" + cutoffnames[i] + '_' + schednames[j] + ".tsv")
+        fca_metric(poutfile, foutfile, popfile, facfile, cutoff=cutoffs[i], piecewise=piecewise[i], popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedules[j])
 
 #------------------------------------------------------------------------------
 
@@ -1044,7 +1045,7 @@ schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_ph
 # 15-30 minute convex combination by urban/rural split
 # 15-30 minute cutoff if more than 50% urban
 
-trialnames = ["15-cutoff.tsv", "30-cutoff.tsv", "15-30-urban-convex.tsv", "15-30-urban-piecewise.tsv"]
+cutoffnames = ["15-cutoff", "30-cutoff", "15-30-urban-convex", "15-30-urban-piecewise"]
 cutoffs = [15.0, 30.0, (15.0, 30.0), (15.0, 30.0)]
 piecewise = [None, None, None, 0.5]
 
@@ -1053,9 +1054,10 @@ piecewise = [None, None, None, 0.5]
 # Abbreviated
 
 schedules = [None, schedfileabbrv]
+schednames = ["all-times", "day-type-times"]
 
-for i in range(len(trialnames)):
-    for sched in schedules:
-        poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_" + trialnames[i])
-        foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_" + trialnames[i])
-        fca_metric(poutfile, foutfile, popfile, facfile, cutoff=cutoffs[i], piecewise=piecewise[i], popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=sched)
+for i in range(len(cutoffnames)):
+    for j in range(len(schedules)):
+        poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_" + cutoffnames[i] + '_' + schednames[j] + ".tsv")
+        foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_" + cutoffnames[i] + '_' + schednames[j] + ".tsv")
+        fca_metric(poutfile, foutfile, popfile, facfile, cutoff=cutoffs[i], piecewise=piecewise[i], popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedules[j])
