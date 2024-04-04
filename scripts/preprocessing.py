@@ -932,7 +932,7 @@ def uc_polk(counties, facfile, schedfile, abbrvfile=None, offset=0,
                                "Urgent_Care_Locator_Coords.csv")
     
     # Read contents of master CSV file
-    with open(master_file, 'r') as f:
+    with open(master_file, 'r', encoding="utf-8-sig") as f:
         reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
     
     # Initialize facility dictionaries
@@ -1073,7 +1073,7 @@ def pharmacy_polk(facfile, schedfile, abbrvfile=None, offset=0,
                                "Pharmacy_Locator_Coords.csv")
     
     # Read contents of master CSV file
-    with open(master_file, 'r') as f:
+    with open(master_file, 'r', encoding="utf-8-sig") as f:
         reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
     
     # Initialize facility dictionaries
@@ -1200,7 +1200,7 @@ def pharmacy_polk_neighbor(facfile, schedfile, abbrvfile=None, offset=0,
                                "Pharmacy_Surrounding_Polk_Coords.csv")
     
     # Read contents of master CSV file
-    with open(master_file, 'r') as f:
+    with open(master_file, 'r', encoding="utf-8-sig") as f:
         reader = list(csv.DictReader(f, delimiter=',', quotechar='"'))
     
     # Initialize facility dictionaries
@@ -1874,6 +1874,8 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
                            offset=index, deletenocoords=deletenocoords)
     _append_files(schedpharm, "temp1.tsv", schedpharm, delete=True)
     _append_files(schedpharmabbrv, "temp2.tsv", schedpharmabbrv, delete=True)
+    
+    print("All urgent care and pharmacy files generated.")
 
 #==============================================================================
 # Execution
