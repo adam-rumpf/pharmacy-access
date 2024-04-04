@@ -946,14 +946,14 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
 
 # Polk County urgent care access
 
-#popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
-#popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
+popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
 
-#facfile = os.path.join("..", "processed", "polk", "polk_uc.tsv")
-#facnbrfile = os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv")
-#distfile = os.path.join("..", "processed", "polk", "polk_dist_uc.tsv")
-#schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv")
-#schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc.tsv")
+facfile = os.path.join("..", "processed", "polk", "polk_uc.tsv")
+facnbrfile = os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv")
+distfile = os.path.join("..", "processed", "polk", "polk_dist_uc.tsv")
+schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv")
+schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_uc.tsv")
 
 #poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_15-cutoff_noschedule.tsv")
 #foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_15-cutoff_noschedule.tsv")
@@ -979,18 +979,40 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
 #foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_30-cutoff_abbrvschedule.tsv")
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfileabbrv)
 
+# Travel time cutoffs to consider, respectively:
+# 15 minute cutoff
+# 30 minute cutoff
+# 15-30 minute convex combination by urban/rural split
+# 15-30 minute cutoff if more than 50% urban
+
+trialnames = ["15-cutoff.tsv", "30-cutoff.tsv", "15-30-urban-convex.tsv", "15-30-urban-piecewise.tsv"]
+cutoffs = [15.0, 30.0, (15.0, 30.0), (15.0, 30.0)]
+piecewise = [None, None, None, 0.5]
+
+# Schedules to consideer, respectively:
+# None (just a facility count regardless of shcedule)
+# Abbreviated
+
+schedules = [None, schedfileabbrv]
+
+for i in range(len(trialnames)):
+    for sched in schedules:
+        poutfile = os.path.join("..", "results", "polk", "polk_pop_uc_count_" + trialnames[i])
+        foutfile = os.path.join("..", "results", "polk", "polk_fac_uc_count_" + trialnames[i])
+        fca_metric(poutfile, foutfile, popfile, facfile, cutoff=cutoffs[i], piecewise=piecewise[i], popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=sched)
+
 #------------------------------------------------------------------------------
 
 # Polk County pharmacy access
 
-#popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
-#popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
+popfile = os.path.join("..", "processed", "polk", "polk_pop.tsv")
+popnbrfile = os.path.join("..", "processed", "polk", "polk_pop_nbr.tsv")
 
-#facfile = os.path.join("..", "processed", "polk", "polk_pharmacy.tsv")
-#facnbrfile = os.path.join("..", "processed", "polk", "polk_pharmacy_nbr.tsv")
-#distfile = os.path.join("..", "processed", "polk", "polk_dist_pharmacy.tsv")
-#schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv")
-#schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_pharmacy.tsv")
+facfile = os.path.join("..", "processed", "polk", "polk_pharmacy.tsv")
+facnbrfile = os.path.join("..", "processed", "polk", "polk_pharmacy_nbr.tsv")
+distfile = os.path.join("..", "processed", "polk", "polk_dist_pharmacy.tsv")
+schedfilefull = os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv")
+schedfileabbrv = os.path.join("..", "processed", "polk", "polk_schedule_abbrv_pharmacy.tsv")
 
 #poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_15-cutoff_noschedule.tsv")
 #foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_15-cutoff_noschedule.tsv")
@@ -1015,3 +1037,25 @@ def _fca_metric_file(popfile, facfile, distfile, cutoff=30.0, popnbrfile=None,
 #poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_30-cutoff_abbrvschedule.tsv")
 #foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_30-cutoff_abbrvschedule.tsv")
 #fca_metric(poutfile, foutfile, popfile, facfile, cutoff=30.0, piecewise=None, popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=schedfileabbrv)
+
+# Travel time cutoffs to consider, respectively:
+# 15 minute cutoff
+# 30 minute cutoff
+# 15-30 minute convex combination by urban/rural split
+# 15-30 minute cutoff if more than 50% urban
+
+trialnames = ["15-cutoff.tsv", "30-cutoff.tsv", "15-30-urban-convex.tsv", "15-30-urban-piecewise.tsv"]
+cutoffs = [15.0, 30.0, (15.0, 30.0), (15.0, 30.0)]
+piecewise = [None, None, None, 0.5]
+
+# Schedules to consideer, respectively:
+# None (just a facility count regardless of shcedule)
+# Abbreviated
+
+schedules = [None, schedfileabbrv]
+
+for i in range(len(trialnames)):
+    for sched in schedules:
+        poutfile = os.path.join("..", "results", "polk", "polk_pop_pharm_count_" + trialnames[i])
+        foutfile = os.path.join("..", "results", "polk", "polk_fac_pharm_count_" + trialnames[i])
+        fca_metric(poutfile, foutfile, popfile, facfile, cutoff=cutoffs[i], piecewise=piecewise[i], popnbrfile=popnbrfile, facnbrfile=facnbrfile, crowding=False, distfile=distfile, schedfile=sched)
