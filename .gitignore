@@ -9,6 +9,7 @@ graphs/*/*
 maps/*/*
 processed/*/*
 results/*/*
+shapefiles/*/*
 scripts/cache/
 !*.md
 !.gitkeep

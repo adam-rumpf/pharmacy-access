@@ -14,6 +14,7 @@ This repo is organized into several major subdirectories, each with its own READ
 * `processed/` is divided into subdirectories by location, and includes data files derived from the raw data, such as collated data tables and calculated travel time matrices.
 * `results/` is divided into subdirectories by location, and includes the output files from the statistical analysis.
 * `scripts/` contains the programs actually used to preprocess the data and to conduct a statistical analysis.
+* `shapefiles/` contains shapefiles for use in generating graphics.
 
 ## Files
 
