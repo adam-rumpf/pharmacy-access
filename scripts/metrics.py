@@ -1050,7 +1050,7 @@ cutoffs = [15.0, 30.0, (15.0, 30.0), (15.0, 30.0)]
 piecewise = [None, None, None, 0.5]
 
 # Schedules to consideer, respectively:
-# None (just a facility count regardless of shcedule)
+# None (just a facility count regardless of schedule)
 # Abbreviated
 
 schedules = [None, schedfileabbrv]
