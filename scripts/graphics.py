@@ -10,6 +10,7 @@ import os.path
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import matplotlib_scalebar.scalebar as sb
 import pandas as pd
 import pygris as pg
 import shapely as shp
@@ -30,6 +31,9 @@ POLK_RESULTS = os.path.join("..", "results", "polk")
 # Polk County bounding boxes
 POLK_X_FULL = [-82.155, -81.087]
 POLK_Y_FULL = [27.608, 28.397]
+
+# Distance of 1 degree near Polk County (meters)
+POLK_DEGREE = 98358.86851331996
 
 #==============================================================================
 # Data Collection and Arrangement
@@ -67,7 +71,7 @@ def download_shapefiles(state, county, cfile=None, tfile=None, bfile=None):
 
 #------------------------------------------------------------------------------
 
-def make_geodata(shapefile, datafile, fields, shapeid="GEOID", dataid="name",
+def make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
                  missing=None):
     """Adds additional data fields to a GeoDataFrame.
     
@@ -76,8 +80,7 @@ def make_geodata(shapefile, datafile, fields, shapeid="GEOID", dataid="name",
             be used as the basis of the GeoDataFrame.
         datafile (str) -- File path for a data file containing fields to be
             added to the shapefile's fields.
-        fields (list(str)) -- List of fields in the data file to be added to
-            the GeoDataFrame.
+        field (str) -- Fields in the data file to be added to the GeoDataFrame.
     
     Keyword arguments:
         shapeid (str) -- Field in the shapefile to use as the unique name to
@@ -99,6 +102,9 @@ def make_geodata(shapefile, datafile, fields, shapeid="GEOID", dataid="name",
     from the shapefile to rearrange the rows from the data file as necessary so
     that all rows correspond correctly, and then it adds any specified columns
     to the shapefile, returning the resulting GeoDataFrame.
+    
+    The purpose of this function is to add result data to a data frame made from
+    a shapefile for use in generating heat maps.
     """
     
     pass
@@ -132,6 +138,8 @@ def map_county(fname, axes, cfips, cfipsname="COUNTYFP", color="black"):
     # Add the border to the axis
     gpd.GeoDataFrame(row).plot(ax=axes, color="white", edgecolor=color)
 
+#------------------------------------------------------------------------------
+
 def map_points(fname, axes, latname="lat", lonname="lon", color="black"):
     """Adds the points defined in a given file to a given set of axes.
     
@@ -155,24 +163,43 @@ def map_points(fname, axes, latname="lat", lonname="lon", color="black"):
         lon = [float(row[lonname]) for row in reader]
     
     # Create point list
-    point_geometry = [shp.Point(pt) for pt in zip(lon, lat)]
-    point_dataframe = gpd.GeoDataFrame(geometry=point_geometry)
+    geom = [shp.Point(pt) for pt in zip(lon, lat)]
+    df = gpd.GeoDataFrame(geometry=geom)
     
     # Add the points to the axis
-    point_dataframe.plot(ax=axes, color=color)
+    df.plot(ax=axes, color=color)
 
-### Useful colormap reference: https://matplotlib.org/stable/users/explain/colors/colormaps.html
+#------------------------------------------------------------------------------
 
-### To-dos:
-    # Plain tract map with population centroids
-    # Plain tract map with pharmacy locations
-    # Plain tract map with urgent care locations
-    # Tract heatmap with average number of facilities available during [[[time slot]]]
-
-### Implement each of these as a map layer generator, then make a master script
-### that combines several of them.
-
-### Lock down the map boundaries (save as constants)
+def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
+             dataid="name", missing=None):
+    """Adds a heat map based on a given field to a given set of axes.
+    
+    Positional arguments:
+        shapefile (str) -- Path to the main shapefile.
+        datafile (str) -- Path to the data file on which the heat map colors
+            will be based.
+        field (str) -- Name of field in data file to use for the heat map.
+    
+    Keyword arguments:
+        color (str) -- Name of Matplotlib color scheme. Defaults to "viridis".
+            The full list of options can be found here:
+            https://matplotlib.org/stable/users/explain/colors/colormaps.html
+        shapeid (str) -- Field in the shapefile to use as the unique name to
+            distinguish each field. Defaults to "GEOID", which is the full FIPS
+            code for the TIGER/Line shapefiles.
+        dataid (str) -- Field in the data file to use as the unique name to
+            distinguish each field. Should contain exactly the same sets of
+            names as appear in the shapefile's "shapeid" field. Defaults to
+            "name", which is what we've used for our population result files.
+        missing -- Default entry used to fill missing fields. Default None.
+    """
+    
+    # Create a single unified GeoDataFrame
+    frame = make_geodata(shapefile, datafile, field, shapeid=shapeid,
+                         dataid=dataid, missing=missing)
+    
+    ###
 
 #==============================================================================
 
@@ -186,6 +213,7 @@ map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
 map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
+ax.add_artist(sb.ScaleBar(POLK_DEGREE))
 plt.show()
 
 # Add urgent care
@@ -195,4 +223,5 @@ map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
 map_points(os.path.join(POLK_PROCESSED, "polk_uc_nbr.tsv"), ax, color="blue")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
+ax.add_artist(sb.ScaleBar(POLK_DEGREE))
 plt.show()
