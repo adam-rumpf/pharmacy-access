@@ -8,7 +8,9 @@ well as plots for statistical results.
 import csv
 import os.path
 
+import geopandas as gpd
 import matplotlib.pyplot as plt
+import pandas as pd
 import pygris as pg
 import shapely as shp
 
@@ -22,7 +24,12 @@ SHP_POLK_TRACTS = os.path.join("..", "shapefiles", "polk", "polk_tracts.shp")
 SHP_POLK_BLOCKS = os.path.join("..", "shapefiles", "polk", "polk_blocks.shp")
 
 # Polk County result file directory
+POLK_PROCESSED = os.path.join("..", "processed", "polk")
 POLK_RESULTS = os.path.join("..", "results", "polk")
+
+# Polk County bounding boxes
+POLK_X_FULL = [-82.155, -81.087]
+POLK_Y_FULL = [27.608, 28.397]
 
 #==============================================================================
 # Data Collection and Arrangement
@@ -100,6 +107,60 @@ def make_geodata(shapefile, datafile, fields, shapeid="GEOID", dataid="name",
 # Map Generation
 #==============================================================================
 
+def map_county(fname, axes, cfips, cfipsname="COUNTYFP", color="black"):
+    """Adds a county border in a given file to a given set of axes.
+    
+    Positional arguments:
+        fname (str) -- File path to a data file containing county shapefiles.
+        axes (ax) -- Matplotlib axis object to add this plot to.
+        cfips (str) -- The 3-digit county FIPS code.
+    
+    Keyword arguments:
+        cfipsname (str) -- Name of the field containing county FIPS codes.
+            Defaults to "COUNTYFP".
+        color (str) -- Color of county border. Defaults to "black".
+    """
+    
+    # Cast FIPS code as a string
+    cfips = str(cfips)
+    
+    # Get county shapefile dataframe and extract specified county
+    counties = gpd.read_file(fname)
+    df = pd.DataFrame(counties)
+    row = df.loc[df[cfipsname] == cfips]
+    
+    # Add the border to the axis
+    gpd.GeoDataFrame(row).plot(ax=axes, color="white", edgecolor=color)
+
+def map_points(fname, axes, latname="lat", lonname="lon", color="black"):
+    """Adds the points defined in a given file to a given set of axes.
+    
+    Positional arguments:
+        fname (str) -- File path to a data file containing latitude and
+            longitude fields.
+        axes (ax) -- Matplotlib axis object to add this plot to.
+    
+    Keyword arguments:
+        latname (str) -- Name of the field containing latitude values. Defaults
+            to "lat".
+        lonname (str) -- Name of the field containing longitude values. Defaults
+            to "lon".
+        color (str) -- Color of points. Defaults to "black".
+    """
+    
+    # Get latitude and longitude values from file
+    with open(fname, 'r') as f:
+        reader = list(csv.DictReader(f, delimiter='\t', quotechar='"'))
+        lat = [float(row[latname]) for row in reader]
+        lon = [float(row[lonname]) for row in reader]
+    
+    # Create point list
+    point_geometry = [shp.Point(pt) for pt in zip(lon, lat)]
+    point_dataframe = gpd.GeoDataFrame(geometry=point_geometry)
+    
+    # Add the points to the axis
+    point_dataframe.plot(ax=axes, color=color)
+
 ### Useful colormap reference: https://matplotlib.org/stable/users/explain/colors/colormaps.html
 
 ### To-dos:
@@ -111,7 +172,27 @@ def make_geodata(shapefile, datafile, fields, shapeid="GEOID", dataid="name",
 ### Implement each of these as a map layer generator, then make a master script
 ### that combines several of them.
 
+### Lock down the map boundaries (save as constants)
+
 #==============================================================================
 
 # Download Polk County files
 #download_shapefiles("FL", "Polk", cfile=SHP_FL_COUNTIES, tfile=SHP_POLK_TRACTS, bfile=SHP_POLK_BLOCKS)
+
+# Plot Polk County with pharmacies
+fig, ax = plt.subplots()
+map_county(SHP_FL_COUNTIES, ax, "105")
+map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
+map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+plt.show()
+
+# Add urgent care
+fig, ax = plt.subplots()
+map_county(SHP_FL_COUNTIES, ax, "105")
+map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
+map_points(os.path.join(POLK_PROCESSED, "polk_uc_nbr.tsv"), ax, color="blue")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+plt.show()
