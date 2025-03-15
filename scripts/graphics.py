@@ -9,6 +9,8 @@ import csv
 import os.path
 
 import geopandas as gpd
+import geopy.distance
+import matplotlib.patches
 import matplotlib.pyplot as plt
 import matplotlib_scalebar.scalebar as sb
 import pandas as pd
@@ -29,11 +31,16 @@ POLK_PROCESSED = os.path.join("..", "processed", "polk")
 POLK_RESULTS = os.path.join("..", "results", "polk")
 
 # Polk County bounding boxes
-POLK_X_FULL = [-82.155, -81.087]
-POLK_Y_FULL = [27.608, 28.397]
+POLK_X_FULL = (-82.155, -81.087)
+POLK_Y_FULL = (27.608, 28.397)
+
+# Lakeland bounding boxes
+LAKELAND_X = (-82.057, -81.798)
+LAKELAND_Y = (27.949, 28.197)
 
 # Distance of 1 degree near Polk County (meters)
-POLK_DEGREE = 98358.86851331996
+POLK_DEGREE = geopy.distance.geodesic((POLK_X_FULL[0], POLK_Y_FULL[1]),
+                                      (POLK_X_FULL[1], POLK_Y_FULL[1])).meters
 
 #==============================================================================
 # Data Collection and Arrangement
@@ -171,6 +178,32 @@ def map_points(fname, axes, latname="lat", lonname="lon", color="black"):
 
 #------------------------------------------------------------------------------
 
+def map_rectangle(xlim, ylim, axes, color="black"):
+    """Adds a polygon defined by a list of points to a given set of axes.
+    
+    Positional arguments:
+        xlim (list(float)) -- Pair of points defining the boundaries in the
+            x-direction.
+        ylim (list(float)) -- Pair of points defining the boundaries in the
+            y-direction.
+        axes (ax) -- Matplotlib axis object to add this plot to.
+    
+    Keyword arguments:
+        color (str) -- Color of polygon. Defaults to "black".
+    """
+    
+    # Define rectangle lower corner, width, and height
+    ll = min(xlim[0], xlim[1])
+    bl = min(ylim[0], ylim[1])
+    w = abs(xlim[0] - xlim[1])
+    h = abs(ylim[0] - ylim[1])
+    
+    # Add rectangle to axes
+    ax.add_patch(matplotlib.patches.Rectangle((ll, bl), w, h, edgecolor=color,
+                                              fill=False))
+
+#------------------------------------------------------------------------------
+
 def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
              dataid="name", missing=None):
     """Adds a heat map based on a given field to a given set of axes.
@@ -209,6 +242,7 @@ def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
 # Plot Polk County with pharmacies
 fig, ax = plt.subplots()
 map_county(SHP_FL_COUNTIES, ax, "105")
+map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
 map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
 map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
 plt.xlim(POLK_X_FULL)
@@ -216,12 +250,29 @@ plt.ylim(POLK_Y_FULL)
 ax.add_artist(sb.ScaleBar(POLK_DEGREE))
 plt.show()
 
-# Add urgent care
+# Plot Lakeland detail with pharmacies
+fig, ax = plt.subplots()
+map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
+map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
+plt.xlim(LAKELAND_X)
+plt.ylim(LAKELAND_Y)
+ax.add_artist(sb.ScaleBar(POLK_DEGREE))
+plt.show()
+
+# Plot Polk County with urgent care
 fig, ax = plt.subplots()
 map_county(SHP_FL_COUNTIES, ax, "105")
+map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
 map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
-map_points(os.path.join(POLK_PROCESSED, "polk_uc_nbr.tsv"), ax, color="blue")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
+ax.add_artist(sb.ScaleBar(POLK_DEGREE))
+plt.show()
+
+# Plot Lakeland detail with urgent care
+fig, ax = plt.subplots()
+map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
+plt.xlim(LAKELAND_X)
+plt.ylim(LAKELAND_Y)
 ax.add_artist(sb.ScaleBar(POLK_DEGREE))
 plt.show()
