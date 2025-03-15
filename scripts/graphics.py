@@ -12,7 +12,7 @@ import geopandas as gpd
 import geopy.distance
 import matplotlib.patches
 import matplotlib.pyplot as plt
-import matplotlib_scalebar.scalebar as sb
+import matplotlib_scalebar.scalebar as scb
 import pandas as pd
 import pygris as pg
 import shapely as shp
@@ -247,7 +247,11 @@ map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
 map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
-ax.add_artist(sb.ScaleBar(POLK_DEGREE))
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
 plt.show()
 
 # Plot Lakeland detail with pharmacies
@@ -256,7 +260,11 @@ map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
 map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
 plt.xlim(LAKELAND_X)
 plt.ylim(LAKELAND_Y)
-ax.add_artist(sb.ScaleBar(POLK_DEGREE))
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
 plt.show()
 
 # Plot Polk County with urgent care
@@ -266,7 +274,11 @@ map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
 map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
-ax.add_artist(sb.ScaleBar(POLK_DEGREE))
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
 plt.show()
 
 # Plot Lakeland detail with urgent care
@@ -274,5 +286,9 @@ fig, ax = plt.subplots()
 map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
 plt.xlim(LAKELAND_X)
 plt.ylim(LAKELAND_Y)
-ax.add_artist(sb.ScaleBar(POLK_DEGREE))
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
 plt.show()
