@@ -147,6 +147,24 @@ def map_county(fname, axes, cfips, cfipsname="COUNTYFP", color="black"):
 
 #------------------------------------------------------------------------------
 
+def map_shapefile(fname, axes, color="black"):
+    """Adds shapefile borders in a given file to a given set of axes.
+    
+    Positional arguments:
+        fname (str) -- File path to a data file containing shapefiles (e.g.
+            tracts or blocks).
+        axes (ax) -- Matplotlib axis object to add this plot to.
+    
+    Keyword arguments:
+        color (str) -- Color of county border. Defaults to "black".
+    """
+    
+    # Open and plot shapefile
+    shapes = gpd.read_file(fname)
+    shapes.plot(ax=axes, color="white", edgecolor=color)
+
+#------------------------------------------------------------------------------
+
 def map_points(fname, axes, latname="lat", lonname="lon", color="black"):
     """Adds the points defined in a given file to a given set of axes.
     
@@ -239,56 +257,74 @@ def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
 # Download Polk County files
 #download_shapefiles("FL", "Polk", cfile=SHP_FL_COUNTIES, tfile=SHP_POLK_TRACTS, bfile=SHP_POLK_BLOCKS)
 
-# Plot Polk County with pharmacies
-fig, ax = plt.subplots()
-map_county(SHP_FL_COUNTIES, ax, "105")
-map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
-map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
-map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
-plt.xlim(POLK_X_FULL)
-plt.ylim(POLK_Y_FULL)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Polk County tracts
+#fig, ax = plt.subplots()
+#map_shapefile(SHP_POLK_TRACTS, ax)
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
 
-# Plot Lakeland detail with pharmacies
-fig, ax = plt.subplots()
-map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
-map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
-plt.xlim(LAKELAND_X)
-plt.ylim(LAKELAND_Y)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Polk County with pharmacies
+#fig, ax = plt.subplots()
+##map_county(SHP_FL_COUNTIES, ax, "105")
+#map_shapefile(SHP_POLK_TRACTS, ax)
+##map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
+#map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
+#map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
 
-# Plot Polk County with urgent care
-fig, ax = plt.subplots()
-map_county(SHP_FL_COUNTIES, ax, "105")
-map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
-map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
-plt.xlim(POLK_X_FULL)
-plt.ylim(POLK_Y_FULL)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Lakeland detail with pharmacies
+#fig, ax = plt.subplots()
+#map_shapefile(SHP_POLK_TRACTS, ax)
+#map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy.tsv"), ax, color="red")
+#map_points(os.path.join(POLK_PROCESSED, "polk_pharmacy_nbr.tsv"), ax, color="red")
+#plt.xlim(LAKELAND_X)
+#plt.ylim(LAKELAND_Y)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
 
-# Plot Lakeland detail with urgent care
-fig, ax = plt.subplots()
-map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
-plt.xlim(LAKELAND_X)
-plt.ylim(LAKELAND_Y)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Polk County with urgent care
+#fig, ax = plt.subplots()
+##map_county(SHP_FL_COUNTIES, ax, "105")
+#map_shapefile(SHP_POLK_TRACTS, ax)
+##map_rectangle(LAKELAND_X, LAKELAND_Y, ax)
+#map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
+#map_points(os.path.join(POLK_PROCESSED, "polk_uc_nbr.tsv"), ax, color="blue")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
+
+## Plot Lakeland detail with urgent care
+#fig, ax = plt.subplots()
+#map_shapefile(SHP_POLK_TRACTS, ax)
+#map_points(os.path.join(POLK_PROCESSED, "polk_uc.tsv"), ax, color="blue")
+#map_points(os.path.join(POLK_PROCESSED, "polk_uc_nbr.tsv"), ax, color="blue")
+#plt.xlim(LAKELAND_X)
+#plt.ylim(LAKELAND_Y)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
