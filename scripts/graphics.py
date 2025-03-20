@@ -40,7 +40,7 @@ LAKELAND_Y = (27.949, 28.197)
 
 # Distance of 1 degree near Polk County (meters)
 POLK_DEGREE = geopy.distance.geodesic((POLK_X_FULL[0], POLK_Y_FULL[1]),
-                                      (POLK_X_FULL[1], POLK_Y_FULL[1])).meters
+                                      (POLK_X_FULL[0]+1, POLK_Y_FULL[1])).meters
 
 #==============================================================================
 # Data Collection and Arrangement
@@ -78,7 +78,7 @@ def download_shapefiles(state, county, cfile=None, tfile=None, bfile=None):
 
 #------------------------------------------------------------------------------
 
-def make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
+def _make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
                  missing=None):
     """Adds additional data fields to a GeoDataFrame.
     
@@ -270,8 +270,8 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
     """
     
     # Create a single unified GeoDataFrame
-    frame = make_geodata(shapefile, datafile, field, shapeid=shapeid,
-                         dataid=dataid, missing=missing)
+    frame = _make_geodata(shapefile, datafile, field, shapeid=shapeid,
+                          dataid=dataid, missing=missing)
     
     # Determine whether to create a legend
     make_legend = True
@@ -292,6 +292,18 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
 ## Plot Polk County tracts
 #fig, ax = plt.subplots()
 #map_shapefile(SHP_POLK_TRACTS, ax)
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
+
+## Plot Polk County blocks
+#fig, ax = plt.subplots()
+#map_shapefile(SHP_POLK_BLOCKS, ax)
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
 #ax.add_artist(scb.ScaleBar(POLK_DEGREE))
