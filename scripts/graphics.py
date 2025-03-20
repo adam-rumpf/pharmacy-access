@@ -114,7 +114,26 @@ def make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
     a shapefile for use in generating heat maps.
     """
     
-    pass
+    # Get shapefile dataframe and IDs
+    shapedf = gpd.read_file(shapefile)
+    shapeids = list(shapedf.get(shapeid))
+    
+    # Get elements of data file field as a dictionary
+    data = dict()
+    with open(datafile, 'r') as f:
+        reader = csv.DictReader(f, delimiter='\t', quotechar='"')
+        for row in reader:
+            data[row[dataid]] = float(row[field])
+    
+    # Generate a new column for the dataframe by matching corresponding IDs
+    col = [missing for i in range(len(shapeids))]
+    for i in range(len(shapeids)):
+        if shapeids[i] in data:
+            col[i] = data[shapeids[i]]
+    
+    # Add the column to the dataframe and return the result
+    shapedf[field] = col
+    return shapedf
 
 #==============================================================================
 # Map Generation
@@ -143,7 +162,7 @@ def map_county(fname, axes, cfips, cfipsname="COUNTYFP", color="black"):
     row = df.loc[df[cfipsname] == cfips]
     
     # Add the border to the axis
-    gpd.GeoDataFrame(row).plot(ax=axes, color="white", edgecolor=color)
+    gpd.GeoDataFrame(row).plot(ax=axes, facecolor="none", edgecolor=color)
 
 #------------------------------------------------------------------------------
 
@@ -161,7 +180,7 @@ def map_shapefile(fname, axes, color="black"):
     
     # Open and plot shapefile
     shapes = gpd.read_file(fname)
-    shapes.plot(ax=axes, color="white", edgecolor=color)
+    shapes.plot(ax=axes, facecolor="none", edgecolor=color)
 
 #------------------------------------------------------------------------------
 
@@ -222,8 +241,8 @@ def map_rectangle(xlim, ylim, axes, color="black"):
 
 #------------------------------------------------------------------------------
 
-def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
-             dataid="name", missing=None):
+def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
+             dataid="name", missing=None, legend=None):
     """Adds a heat map based on a given field to a given set of axes.
     
     Positional arguments:
@@ -231,6 +250,7 @@ def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
         datafile (str) -- Path to the data file on which the heat map colors
             will be based.
         field (str) -- Name of field in data file to use for the heat map.
+        axes (ax) -- Matplotlib axis object to add this plot to.
     
     Keyword arguments:
         color (str) -- Name of Matplotlib color scheme. Defaults to "viridis".
@@ -244,13 +264,25 @@ def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
             names as appear in the shapefile's "shapeid" field. Defaults to
             "name", which is what we've used for our population result files.
         missing -- Default entry used to fill missing fields. Default None.
+        legend (str) -- Legend bar name. Default None, in which case no legend
+            bar is generated. Simply specifying an empty string (legend="")
+            creates the legend bar with no string.
     """
     
     # Create a single unified GeoDataFrame
     frame = make_geodata(shapefile, datafile, field, shapeid=shapeid,
                          dataid=dataid, missing=missing)
     
-    ###
+    # Determine whether to create a legend
+    make_legend = True
+    if legend == None:
+        make_legend = False
+    
+    # Add heat map to axes
+    frame.plot(ax=axes, column=field, cmap=color, legend=make_legend,
+               legend_kwds={"label": legend},
+               missing_kwds={"color": "lightgray", "edgecolor": "gray",
+               "hatch": "//////"})
 
 #==============================================================================
 
@@ -328,3 +360,55 @@ def map_heat(shapefile, datafile, field, color="viridis", shapeid="GEOID",
 #ax.set_xlabel("Longitude")
 #ax.set_ylabel("Latitude")
 #plt.show()
+
+# Plot Polk County pharmacies within 15 minutes
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_pharm_count_15-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Pharmacies within 15 minutes")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County pharmacies within 30 minutes
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_pharm_count_30-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Pharmacies within 30 minutes")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County urgent care within 15 minutes
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_uc_count_15-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Urgent care within 15 minutes")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County urgent care within 30 minutes
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_uc_count_30-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Urgent care within 30 minutes")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
