@@ -1456,6 +1456,9 @@ def expand_schedule(infile, outfile, increment=30):
         raise ValueError("time increment must divide 60")
     minutes = [increment*i for i in range(60//increment)]
     
+    # Initialize ID/name pairs
+    names = []
+    
     # Initialize new list of days/times
     newdaytimes = []
     
@@ -1486,6 +1489,9 @@ def expand_schedule(infile, outfile, increment=30):
                 
                 continue
             
+            # Get ID and name
+            names.append(row[0] + '\t' + row[1] + '\t')
+            
             # For following rows, generate 0-1 indicators of open time slots
             hours.append([]) # add new row
             for i in range(2, len(row)):
@@ -1511,17 +1517,22 @@ def expand_schedule(infile, outfile, increment=30):
                     # Push to front
                     hours[-1].extend([(1 if j < numopen else 0)
                                       for j in range(num)])
-            
-            print(hours)
-            break###
-            
-            ###
-            # Generate each row as a string
-            # Process each time stot one-at-a-time
-            # Round its value to the nearest increment
-            # Determine which increments should be filled
-                # If rounded 1, all
-                # Otherwise push to front if preceding value is filled, back otherwise
+    
+    # Write new schedule file
+    with open(outfile, 'w') as f:
+        
+        # Write new header
+        line = str(fields[0]) + '\t' + str(fields[1]) + '\t'
+        for dt in newdaytimes:
+            line += dt + '\t'
+        f.write(line + '\n')
+        
+        # Write remaining lines
+        for i in range(len(hours)):
+            line = names[i]
+            for h in hours[i]:
+                line += str(h) + '\t'
+            f.write(line + '\n')
 
 #==============================================================================
 # Location-Specific Preprocessing Scripts
@@ -2010,3 +2021,4 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #process_polk(deletemissingsvi=True, deletenocoords=True)
 
 expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_pharmacy_15.tsv"), 15)
+expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_uc_15.tsv"), 15)
