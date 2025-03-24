@@ -29,8 +29,6 @@ SCHED_OFFSET = 2 # first column of the schedule file to contain time info
 # Common Functions
 #==============================================================================
 
-#------------------------------------------------------------------------------
-
 def _read_popfile(popfile):
     """Reads a population file and returns dictionaries of data.
     
@@ -209,7 +207,13 @@ def _augment_file(outfile, infile, column, label, default="-1"):
             f.write(line)
 
 #==============================================================================
-# Metric Scripts
+# Specific Metrics
+#==============================================================================
+
+##
+
+#==============================================================================
+# Metric Compilation Scripts
 #==============================================================================
 
 ##
