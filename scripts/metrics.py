@@ -25,6 +25,12 @@ POP_SVI = 7 # population SVI ranking
 POP_URBAN = 8 # population urban fraction
 SCHED_OFFSET = 2 # first column of the schedule file to contain time info
 
+# Processed file roots
+POLK_PROCESSED = os.path.join("..", "processed", "polk")
+
+# Result file roots
+POLK_RESULTS = os.path.join("..", "results", "polk")
+
 #==============================================================================
 # Common Functions
 #==============================================================================
@@ -117,17 +123,17 @@ def _read_schedfile(schedfile):
     
     Positional arguments:
         schedfile (str) -- Preprocessed schedule file path, which should
-            include columns indicating the fraction of each time slot during
-            which a facility is open.
+            include columns indicating binary indicators of whether a facility
+            is open during each time slot.
     
     Returns:
-        sched (dict(dict(float))) -- Dictionary of dictionaries of time slot
-            availability numbers.
+        sched (dict(dict(bool))) -- Dictionary of dictionaries of time slot
+            availability indicators (True or False).
     
     The returned dictionary contains one entry for every time slot specified
     in the schedule file, indexed by the name of the time slot. Each entry is,
-    itself, a dictionary, indexed by facility ID and containing the fraction of
-    that time slot during which that facility is open.
+    itself, a dictionary, indexed by facility ID and containing a True if the
+    facility is open during that time slot and a False otherwise.
     """
     
     # Initialize dictionaries
@@ -154,9 +160,58 @@ def _read_schedfile(schedfile):
             s = line.strip().split('\t')
             id = int(s[0])
             for i in range(len(slots)):
-                sched[slots[i]][id] = float(s[i+SCHED_OFFSET])
+                sched[slots[i]][id] = bool(s[i+SCHED_OFFSET])
     
     return sched
+
+#------------------------------------------------------------------------------
+
+def _read_distfile(distfile):
+    """Reads a distance file and returns dictionaries of data.
+    
+    Positional arguments:
+        distfile (str) -- Preprocessed distance file path, which should include
+            a column of population center IDs followed by a column of facility
+            IDs followed by a column of travel times.
+    
+    Returns:
+        dist (dict(dict(float))) -- Dictionary of dictionaries of travel times.
+    
+    The returned dictionary contains one entry for every population center,
+    indexed by center ID. Each of these entries is, itself, a dictionary,
+    indexed by facility ID, containing the travel time from that center to that
+    facility.
+    """
+    
+    # Initialize dictionary
+    dist = dict() # dictionary of dictionaries of travel times
+    
+    # Read file
+    with open(distfile, 'r') as f:
+        
+        first = True
+        
+        for line in f:
+            
+            # Skip the first line
+            if first == True:
+                first = False
+                continue
+            
+            # Get entries
+            s = line.strip().split('\t')
+            pid = int(s[0]) # population ID
+            fid = int(s[1]) # facility ID
+            t = float(s[2]) # travel time
+            
+            # Add new population entry if needed
+            if pid not in dist:
+                dist[pid] = dict()
+            
+            # Log travel time
+            dist[pid][fid] = t
+    
+    return dist
 
 #------------------------------------------------------------------------------
 
@@ -210,10 +265,20 @@ def _augment_file(outfile, infile, column, label, default="-1"):
 # Specific Metrics
 #==============================================================================
 
-##
+### Common dictinaries:
+# pop[i] - population of tract i
+# svi[i] - SVI of tract i
+# sched[k][j] - boolean if facility j is open during time slot k
+# dist[i][j] - travel time from tract i to facility j
+
+
 
 #==============================================================================
 # Metric Compilation Scripts
 #==============================================================================
 
 ##
+
+#==============================================================================
+
+#print(_read_distfile(os.path.join(POLK_PROCESSED, "polk_dist_pharmacy.tsv")))
