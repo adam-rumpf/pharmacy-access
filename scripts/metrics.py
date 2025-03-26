@@ -348,17 +348,17 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
                     counts[pid] += 1
     
     # Scheduled case
-    #else:
-    #    # Go through each population/facility distance pair
-    #    for pid in pdic:
-    #        for fid in fdic:
-    #            # ### Skip if facility is closed during all time slots
-    #            if False:###
-    #                continue
-    #            
-    #            # Otherwise, increment facility count if below distance cutoff
-    #            if ddic[pid][fid] <= cutoff:
-    #                counts[pid] += 1
+    else:
+        # Go through each population/facility distance pair
+        for pid in pdic:
+            for fid in fdic:
+                # skip if facility is closed during all time slots
+                if _is_open(sdic, fid, hours[0], hours[1]) == False:
+                    continue
+                
+                # Otherwise, increment facility count if below distance cutoff
+                if ddic[pid][fid] <= cutoff:
+                    counts[pid] += 1
     
     return counts
 
@@ -415,8 +415,6 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
         results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours))
     
     ###
-    #print(labels)
-    #print(results)
 
 #==============================================================================
 
