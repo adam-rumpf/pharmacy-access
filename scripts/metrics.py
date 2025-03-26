@@ -134,6 +134,7 @@ def _read_schedfile(schedfile, num=True):
     Returns:
         sched (dict(dict(bool))) -- Dictionary of dictionaries of time slot
             availability indicators (True or False).
+         names (list(str)) -- List of time slot names.
     
     The returned dictionary contains one entry for every time slot specified
     in the schedule file, indexed by the name of the time slot. Each entry is,
@@ -175,7 +176,7 @@ def _read_schedfile(schedfile, num=True):
                     k = slots[i]
                 sched[k][id] = bool(int(s[i+SCHED_OFFSET]))
     
-    return sched
+    return sched, slots
 
 #------------------------------------------------------------------------------
 
@@ -445,17 +446,27 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
     pdic, _, _, _ = _read_popfile(pinfile)
     fdic, _ = _read_facfile(facfile)
     ddic = _read_distfile(distfile)
-    sdic = _read_schedfile(schedfile)
+    sdic, hournames = _read_schedfile(schedfile)
     
-    # Get time increment from schedule file
-    dt = 60 # number of minutes between schedule slots
-    with open(schedfile, 'r') as f:
-        # Get first two time strings
-        line = f.readline().split('\t')
-        t1 = int(line[SCHED_OFFSET][-2:])
-        t2 = int(line[SCHED_OFFSET+1][-2:])
-        if t2 - t1 > 0:
-            dt = t2 - t1
+    # Compute total population
+    totpop = 0
+    for pid in pdic:
+        totpop += pdic[pid]
+    print(f"Total population: {totpop}")
+    
+    ## Get time increment from schedule file
+    #dt = 60 # number of minutes between schedule slots
+    #with open(schedfile, 'r') as f:
+    #    # Get first two time strings
+    #    line = f.readline().split('\t')
+    #    t1 = int(line[SCHED_OFFSET][-2:])
+    #    t2 = int(line[SCHED_OFFSET+1][-2:])
+    #    if t2 - t1 > 0:
+    #        dt = t2 - t1
+    
+    # Get start and end time names
+    tstart = hournames[hours[0]]
+    tfinish = hournames[hours[1]+1]
     
     # Initialize list of result dictionaries
     labels = [] # labels for new columns
@@ -463,14 +474,39 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
     
     # Generate counts, both with and without store hours
     for t0 in cutoffs:
-        labels.append(f"fac_count_alltimes_{t0}")
+        
+        # Counts and averages
+        labels.append(f"fac-count_all-times_cutoff-{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0))
-        labels.append(f"fac_count_range_{t0}")
+        countcol = len(results) - 1 # all-times count column for thresholds
+        labels.append(f"fac-count_{tstart}-{tfinish}_cutoff-{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours))
-        labels.append(f"fac_avg_range_{t0}")
+        labels.append(f"fac-avg_{tstart}-{tfinish}_cutoff-{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours, True))
+        
+        
+        # Indicators for facility count thresholds
+        for fn in facnums:
+            # Initialize total population
+            total = 0
+            # Generate result column
+            labels.append(f"fac-count-below-{fn}_all-times_cutoff-{t0}")
+            results.append(dict())
+            for pid in pdic:
+                results[-1][pid] = 0 # indicator for below threshold
+                if results[countcol][pid] < fn:
+                    results[-1][pid] = 1
+                    total += pdic[pid]
+            # Print global statistic
+            print(f"Total population lacking access to {fn} facilities " +
+                  f"within {t0} minutes: {total}; Fraction: {total/totpop:f}")
     
     ###
+    
+    # Write results
+    _augment_file(pinfile, poutfile, results[0], labels[0])
+    for i in range(1, len(labels)):
+        _augment_file(poutfile, poutfile, results[i], labels[i])
 
 #==============================================================================
 
@@ -489,8 +525,8 @@ polk_pop_uc_results = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 # Additional parameters
 cutoffs = (15, 30) # travel time cutoffs
-hours = (262, 281) # WED 5:00pm-5:15pm through WED 9:45pm-10:00pm
-#hours = (48, 51) ### MON 12:00pm-12:15pm through MON 12:45pm-1:00pm
+hours = (260, 279) # WED 5:00pm-5:15pm through WED 9:45pm-10:00pm
 facnums = (1, 3, 5) # numbers of nearest facilities to average over
 
+print("="*20 + "\nPharmacy tests\n" + "="*20)
 all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours, facnums)
