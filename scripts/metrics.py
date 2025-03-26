@@ -215,12 +215,12 @@ def _read_distfile(distfile):
 
 #------------------------------------------------------------------------------
 
-def _augment_file(outfile, infile, column, label, default="-1"):
+def _augment_file(infile, outfile, column, label, default="-1"):
     """Augments a population or facility file with a new column.
     
     Positional arguments:
-        outfile (str) -- Output population/facility file path.
         infile (str) -- Preprocessed population/facility file path.
+        outfile (str) -- Output population/facility file path.
         column (dict(float)) -- Dictionary of entries for the new table
             column. The keys of the dictionary should correspond to the
             indices in the first column of the input file.

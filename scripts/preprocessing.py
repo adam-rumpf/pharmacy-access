@@ -1534,6 +1534,40 @@ def expand_schedule(infile, outfile, increment=30):
                 line += str(h) + '\t'
             f.write(line + '\n')
 
+#------------------------------------------------------------------------------
+
+def table_file_append(top, bottom, outfile, bottomfirst=False):
+    """Appends the contents of one table to another.
+    
+    Positional arguments:
+        top (str) -- Path to table file to appear on top.
+        bottom (str) -- Path to table file to appear below the first.
+        outfile (str) -- Path to output file.
+    
+    Optional keyword arguments:
+        bottomfirst (bool) -- Whether to keep the first row of the bottom
+            table. Defaults to False.
+    """
+    
+    # Read top table into string
+    s = ""
+    with open(top, 'r') as f:
+        for line in f:
+            s += line
+    
+    # Read bottom table into string
+    with open(bottom, 'r') as f:
+        first = True
+        for line in f:
+            if first == True and bottomfirst == False:
+                first = False
+                continue
+            s += line
+    
+    # Write output file
+    with open(outfile, 'w') as f:
+        f.write(s)
+
 #==============================================================================
 # Location-Specific Preprocessing Scripts
 #==============================================================================
@@ -2020,5 +2054,8 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #address_file_coords(os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk.csv"), os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk_Coords.csv"))
 #process_polk(deletemissingsvi=True, deletenocoords=True)
 
-expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_pharmacy_15.tsv"), 15)
-expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_uc_15.tsv"), 15)
+#expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_pharmacy_15.tsv"), 15)
+#expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_uc_15.tsv"), 15)
+
+table_file_append(os.path.join("..", "processed", "polk", "polk_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_pharmacy_nbr.tsv"), os.path.join("..", "processed", "polk", "polk_pharmacy_all.tsv"))
+table_file_append(os.path.join("..", "processed", "polk", "polk_uc.tsv"), os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv"), os.path.join("..", "processed", "polk", "polk_uc_all.tsv"))

@@ -6,6 +6,7 @@ polk/
     polk_dist_pharmacy.tsv
     polk_dist_uc.tsv
     polk_pharmacy.tsv
+    polk_pharmacy_all.tsv
     polk_pharmacy_nbr.tsv
     polk_pop.tsv
     polk_pop_nbr.tsv
@@ -14,6 +15,7 @@ polk/
     polk_schedule_pharmacy.tsv
     polk_schedule_uc.tsv
     polk_uc.tsv
+    polk_uc_all.tsv
     polk_uc_nbr.tsv
 santa_clara/
     santa_clara_dist.tsv
@@ -52,7 +54,7 @@ A facility file is generated for each location, summarizing vaccination facility
 * `lon`: Longitude of facility.
 * `cap`: Capacity of facility (for now just 1 for everything, but might include something to account for resource limitations in the future).
 
-Each location also has a facility file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off.
+Each location also has a facility file that combines all neighboring locations, indicated by the `_nbr` suffix in the file name. Neighbor file indices pick up where the main file's indices left off. A third file, indicated by the `_all` suffix, combines the contents of the location's facility file and its neigbhor facility file.
 
 The Santa Clara directory contains only a single type of facility, while the Polk County directory includes two sets of facility files: those for pharmacies and those for urgent care centers.
 
