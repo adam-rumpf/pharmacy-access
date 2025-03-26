@@ -264,39 +264,74 @@ def _augment_file(infile, outfile, column, label, default="-1"):
 # Specific Metrics
 #==============================================================================
 
-### Common dictinaries:
-# pop[i] - population of tract i
-# svi[i] - SVI of tract i
-# sched[k][j] - boolean if facility j is open during time slot k
-# dist[i][j] - travel time from tract i to facility j
-
-
+def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
+    """Counts facilities within a given travel time cutoff.
+    
+    Positional arguments:
+        pdic (dict) -- Population dictionary indexed by population center ID.
+        fdic (dict) -- Facility dictionary indexed by facility ID.
+        ddic (dict(dict)) -- Distance dictionary of dictionaries, indexed first
+            by population center ID and second by facility ID.
+        cutoff (float) -- Travel time cutoff.
+    
+    Optional keyword arguments:
+        sdic (dict(dict)) -- Schedule dictionary of dictionaries, indexed first
+            by facility ID and second by time ID. Defaults to None, in which
+            case hours are ignored.
+        hours (None|tuple(int,int)) -- Whether to filter to a specific time
+            window. Defaults to None, in which case hours are ignored.
+            Otherwise should be a tuple containing the first and last schedule
+            indices (inclusive).
+    
+    Returns:
+        (dict(int)) -- Dictionary of facility counts, indexed by population
+            center ID.
+    """
+    
+    # Initialize dictionary
+    counts = dict([(pid, 0) for pid in pdic])
+    
+    # Shchedule-free case
+    if sdic == None or times == None:
+        # Go through each population/facility distance pair
+        for pid in pdic:
+            for fid in fdic:
+                # Increment facility count if below distance cutoff
+                if ddic[pid][fid] <= cutoff:
+                    counts[pid] += 1
+    
+    # Scheduled case
+    else:
+        pass
+    
+    return counts
 
 #==============================================================================
 # Metric Compilation Scripts
 #==============================================================================
 
-def all_metrics(pinfile, poutfile, distfile, schedfile, tstart, tfinish):
+def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours):
     """Driver to generate all population metrics.
     
     Positional arguments:
         pinfile (str) -- Path to input population file.
         poutfile (str) -- Path to output population file.
+        facfile (str) -- Path to facility file.
         distfile (str) -- Path to input distance file.
         schedfile (str) -- Path to input schedule file.
-        tstart (ind) -- Starting time index for computing metrics within a
-            limited window.
-        tfinish (ind) -- Ending time index for computing metrics within a
-            limited window. This final time index *is* included.
+        cutoffs (tuple(float)) -- Tuple of travel time cutoffs to include.
+        hours (tuple(int)) -- Tuple of starting and ending schedule file indices
+            to define a limited time window (inclusive).
     
     This function runs through a set of the above metric generation functions.
     All results are appended to the given population file as new fields.
     """
     
     # Read dictionaries from input files
-    popdic, _, _, _ = _read_popfile(pinfile)
-    distdic = _read_distfile(distfile)
-    scheddic = _read_schedfile(schedfile)
+    pdic, _, _, _ = _read_popfile(pinfile)
+    fdic, _ = _read_facfile(facfile)
+    ddic = _read_distfile(distfile)
+    sdic = _read_schedfile(schedfile)
     
     # Get time increment from schedule file
     dt = 60 # number of minutes between schedule slots
@@ -308,7 +343,10 @@ def all_metrics(pinfile, poutfile, distfile, schedfile, tstart, tfinish):
         if t2 - t1 > 0:
             dt = t2 - t1
     
-    #
+    # Generate counts, both with and without store hours
+    for t0 in cutoffs:
+        allcounts = cutoff_count(pdic, fdic, ddic, t0)
+        break###
 
 #==============================================================================
 
@@ -316,6 +354,8 @@ def all_metrics(pinfile, poutfile, distfile, schedfile, tstart, tfinish):
 
 # Polk file paths
 polk_pop = os.path.join(POLK_PROCESSED, "polk_pop.tsv")
+polk_pharm = os.path.join(POLK_PROCESSED, "polk_pharmacy_all.tsv")
+polk_uc = os.path.join(POLK_PROCESSED, "polk_uc_all.tsv")
 polk_sched_pharm = os.path.join(POLK_PROCESSED, "polk_schedule_pharmacy_15.tsv")
 polk_sched_uc = os.path.join(POLK_PROCESSED, "polk_schedule_uc_15.tsv")
 polk_dist_pharm = os.path.join(POLK_PROCESSED, "polk_dist_pharmacy.tsv")
@@ -323,8 +363,8 @@ polk_dist_uc = os.path.join(POLK_PROCESSED, "polk_dist_uc.tsv")
 polk_pop_pharm_results = os.path.join(POLK_RESULTS, "polk_pop_pharm_results.tsv")
 polk_pop_uc_results = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
-# Starting and ending time indices
-tstart = 262 # WED 5:00pm-5:15pm
-tfinish = 281 # WED 9:45pm-10:00pm
+# Additional parameters
+cutoffs = (15, 30) # travel time cutoffs
+hours = (262, 281) # WED 5:00pm-5:15pm through WED 9:45pm-10:00pm
 
-all_metrics(polk_pop, polk_pop_pharm_results, polk_dist_pharm, polk_sched_pharm, tstart, tfinish)
+all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours)
