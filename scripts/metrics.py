@@ -261,6 +261,40 @@ def _is_open(sdic, fid, tstart, tfinish=None):
 
 #------------------------------------------------------------------------------
 
+def _count_open(sdic, fid, tstart, tfinish=None):
+    """Counts number of time slots in a range during which a facility is open.
+    
+    Positional arguments:
+        sdic (dict(dict)) -- Schedule dictionary of dictionaries, indexed first
+            by facility ID and second by time ID. Defaults to None, in which
+            case hours are ignored.
+        fid (int) -- Facility index.
+        tstart (int) -- Index of time slot, or index of first time slot in a
+            range.
+    
+    Optional keyword argument:
+        tfinish (int) -- Index of final time slot in a range (inclusive).
+            Defaults to None, in which case only the first time slot is
+            considered.
+    
+    Returns:
+        (int) -- The number of time slots during the specified range during
+            which the facility is open.
+    """
+    
+    # Set default finish time slot
+    if tfinish == None:
+        tfinish = tstart
+    
+    # Loop through time slots and count number during which facility is open
+    total = 0
+    for t in range(tstart, tfinish+1):
+        if sdic[t][fid] == True:
+            total += 1
+    return total
+
+#------------------------------------------------------------------------------
+
 def _augment_file(infile, outfile, column, label, default="-1"):
     """Augments a population or facility file with a new column.
     
@@ -311,7 +345,7 @@ def _augment_file(infile, outfile, column, label, default="-1"):
 # Specific Metrics
 #==============================================================================
 
-def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
+def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None, avg=False):
     """Counts facilities within a given travel time cutoff.
     
     Positional arguments:
@@ -329,6 +363,10 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
             window. Defaults to None, in which case hours are ignored.
             Otherwise should be a tuple containing the first and last schedule
             indices (inclusive).
+        avg (bool) -- Whether to compute an average facility count over the
+            given time period. Defaults to False, in which case the result is
+            a simple count of facilities available at any point within the
+            time window.
     
     Returns:
         (dict(int)) -- Dictionary of facility counts, indexed by population
@@ -347,18 +385,34 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
                 if ddic[pid][fid] <= cutoff:
                     counts[pid] += 1
     
-    # Scheduled case
-    else:
+    # Scheduled count
+    elif avg == False:
         # Go through each population/facility distance pair
         for pid in pdic:
             for fid in fdic:
-                # skip if facility is closed during all time slots
+                # Skip if facility is closed during all time slots
                 if _is_open(sdic, fid, hours[0], hours[1]) == False:
                     continue
                 
                 # Otherwise, increment facility count if below distance cutoff
                 if ddic[pid][fid] <= cutoff:
                     counts[pid] += 1
+    
+    # Scheduled average
+    else:
+        # Go through each population/facility distance pair
+        for pid in pdic:
+            total = 0
+            for fid in fdic:
+                # Skip facilities out of range
+                if ddic[pid][fid] > cutoff:
+                    continue
+                
+                # Compute number of time slots during which facility is open
+                total += _count_open(sdic, fid, hours[0], hours[1])
+            
+            # Compute average
+            counts[pid] = total/(hours[1] - hours[0] + 1)
     
     return counts
 
@@ -409,10 +463,12 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
     
     # Generate counts, both with and without store hours
     for t0 in cutoffs:
-        labels.append(f"count_alltimes_{t0}")
+        labels.append(f"fac_count_alltimes_{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0))
-        labels.append(f"count_range_{t0}")
+        labels.append(f"fac_count_range_{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours))
+        labels.append(f"fac_avg_range_{t0}")
+        results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours, True))
     
     ###
 
@@ -434,6 +490,7 @@ polk_pop_uc_results = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 # Additional parameters
 cutoffs = (15, 30) # travel time cutoffs
 hours = (262, 281) # WED 5:00pm-5:15pm through WED 9:45pm-10:00pm
+#hours = (48, 51) ### MON 12:00pm-12:15pm through MON 12:45pm-1:00pm
 facnums = (1, 3, 5) # numbers of nearest facilities to average over
 
 all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours, facnums)
