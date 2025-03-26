@@ -5,7 +5,6 @@ files, all of which should have a standardized format. Various accessibility
 metrics can be computed, and various distance measurements can be used.
 """
 
-import csv
 import os.path
 
 import tqdm
@@ -277,8 +276,55 @@ def _augment_file(infile, outfile, column, label, default="-1"):
 # Metric Compilation Scripts
 #==============================================================================
 
-##
+def all_metrics(pinfile, poutfile, distfile, schedfile, tstart, tfinish):
+    """Driver to generate all population metrics.
+    
+    Positional arguments:
+        pinfile (str) -- Path to input population file.
+        poutfile (str) -- Path to output population file.
+        distfile (str) -- Path to input distance file.
+        schedfile (str) -- Path to input schedule file.
+        tstart (ind) -- Starting time index for computing metrics within a
+            limited window.
+        tfinish (ind) -- Ending time index for computing metrics within a
+            limited window. This final time index *is* included.
+    
+    This function runs through a set of the above metric generation functions.
+    All results are appended to the given population file as new fields.
+    """
+    
+    # Read dictionaries from input files
+    popdic, _, _, _ = _read_popfile(pinfile)
+    distdic = _read_distfile(distfile)
+    scheddic = _read_schedfile(schedfile)
+    
+    # Get time increment from schedule file
+    dt = 60 # number of minutes between schedule slots
+    with open(schedfile, 'r') as f:
+        # Get first two time strings
+        line = f.readline().split('\t')
+        t1 = int(line[SCHED_OFFSET][-2:])
+        t2 = int(line[SCHED_OFFSET+1][-2:])
+        if t2 - t1 > 0:
+            dt = t2 - t1
+    
+    #
 
 #==============================================================================
 
 #print(_read_distfile(os.path.join(POLK_PROCESSED, "polk_dist_pharmacy.tsv")))
+
+# Polk file paths
+polk_pop = os.path.join(POLK_PROCESSED, "polk_pop.tsv")
+polk_sched_pharm = os.path.join(POLK_PROCESSED, "polk_schedule_pharmacy_15.tsv")
+polk_sched_uc = os.path.join(POLK_PROCESSED, "polk_schedule_uc_15.tsv")
+polk_dist_pharm = os.path.join(POLK_PROCESSED, "polk_dist_pharmacy.tsv")
+polk_dist_uc = os.path.join(POLK_PROCESSED, "polk_dist_uc.tsv")
+polk_pop_pharm_results = os.path.join(POLK_RESULTS, "polk_pop_pharm_results.tsv")
+polk_pop_uc_results = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
+
+# Starting and ending time indices
+tstart = 262 # WED 5:00pm-5:15pm
+tfinish = 281 # WED 9:45pm-10:00pm
+
+all_metrics(polk_pop, polk_pop_pharm_results, polk_dist_pharm, polk_sched_pharm, tstart, tfinish)
