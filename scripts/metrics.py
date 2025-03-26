@@ -117,13 +117,19 @@ def _read_facfile(facfile):
 
 #------------------------------------------------------------------------------
 
-def _read_schedfile(schedfile):
+def _read_schedfile(schedfile, num=True):
     """Reads a schedule file and returns dictionaries of data.
     
     Positional arguments:
         schedfile (str) -- Preprocessed schedule file path, which should
             include columns indicating binary indicators of whether a facility
             is open during each time slot.
+    
+    Optional keyword arguments:
+        num (bool) -- Whether to convert time slot titles to numerical indices.
+            Defaults to True, in which case dictionary keys are integer
+            indices that correspond to time slot names. If False, the time slot
+            names, themselves, are the dictionary keys.
     
     Returns:
         sched (dict(dict(bool))) -- Dictionary of dictionaries of time slot
@@ -151,15 +157,23 @@ def _read_schedfile(schedfile):
                 first = False
                 # Initialize a dictionary entry for each time slot
                 slots = line.strip().split('\t')[SCHED_OFFSET:]
-                for slot in slots:
-                    sched[slot] = dict()
+                for i in range(len(slots)):
+                    # Determine key type
+                    k = i
+                    if num == False:
+                        k = slots[i]
+                    sched[k] = dict()
                 continue
             
             # Read the availability numbers for the current facility
             s = line.strip().split('\t')
             id = int(s[0])
             for i in range(len(slots)):
-                sched[slots[i]][id] = bool(s[i+SCHED_OFFSET])
+                # Determine key type
+                k = i
+                if num == False:
+                    k = slots[i]
+                sched[k][id] = bool(int(s[i+SCHED_OFFSET]))
     
     return sched
 
@@ -211,6 +225,39 @@ def _read_distfile(distfile):
             dist[pid][fid] = t
     
     return dist
+
+#------------------------------------------------------------------------------
+
+def _is_open(sdic, fid, tstart, tfinish=None):
+    """Determines whether a facility is open during a given time slot or range.
+    
+    Positional arguments:
+        sdic (dict(dict)) -- Schedule dictionary of dictionaries, indexed first
+            by facility ID and second by time ID. Defaults to None, in which
+            case hours are ignored.
+        fid (int) -- Facility index.
+        tstart (int) -- Index of time slot, or index of first time slot in a
+            range.
+    
+    Optional keyword argument:
+        tfinish (int) -- Index of final time slot in a range (inclusive).
+            Defaults to None, in which case only the first time slot is
+            considered.
+    
+    Returns:
+        (bool) -- True if the facility is open during the given time slot, or
+            at any point during the given range of time slots.
+    """
+    
+    # Set default finish time slot
+    if tfinish == None:
+        tfinish = tstart
+    
+    # Loop through time slots to find one where the facility is open
+    for t in range(tstart, tfinish+1):
+        if sdic[t][fid] == True:
+            return True
+    return False
 
 #------------------------------------------------------------------------------
 
@@ -292,7 +339,7 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
     counts = dict([(pid, 0) for pid in pdic])
     
     # Shchedule-free case
-    if sdic == None or times == None:
+    if sdic == None or hours == None:
         # Go through each population/facility distance pair
         for pid in pdic:
             for fid in fdic:
@@ -301,8 +348,17 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
                     counts[pid] += 1
     
     # Scheduled case
-    else:
-        pass
+    #else:
+    #    # Go through each population/facility distance pair
+    #    for pid in pdic:
+    #        for fid in fdic:
+    #            # ### Skip if facility is closed during all time slots
+    #            if False:###
+    #                continue
+    #            
+    #            # Otherwise, increment facility count if below distance cutoff
+    #            if ddic[pid][fid] <= cutoff:
+    #                counts[pid] += 1
     
     return counts
 
@@ -310,7 +366,8 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None):
 # Metric Compilation Scripts
 #==============================================================================
 
-def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours):
+def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
+                facnums):
     """Driver to generate all population metrics.
     
     Positional arguments:
@@ -322,6 +379,9 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours)
         cutoffs (tuple(float)) -- Tuple of travel time cutoffs to include.
         hours (tuple(int)) -- Tuple of starting and ending schedule file indices
             to define a limited time window (inclusive).
+        facnums (tuple(int)) -- Tuple of numbers of facilities to average over.
+            These are the k's for which some of the metrics measure things like
+            average travel times to the k nearest facilities.
     
     This function runs through a set of the above metric generation functions.
     All results are appended to the given population file as new fields.
@@ -343,10 +403,20 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours)
         if t2 - t1 > 0:
             dt = t2 - t1
     
+    # Initialize list of result dictionaries
+    labels = [] # labels for new columns
+    results = [] # dictionaries containing results for each column
+    
     # Generate counts, both with and without store hours
     for t0 in cutoffs:
-        allcounts = cutoff_count(pdic, fdic, ddic, t0)
-        break###
+        labels.append(f"count_alltimes_{t0}")
+        results.append(cutoff_count(pdic, fdic, ddic, t0))
+        labels.append(f"count_range_{t0}")
+        results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours))
+    
+    ###
+    #print(labels)
+    #print(results)
 
 #==============================================================================
 
@@ -366,5 +436,6 @@ polk_pop_uc_results = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 # Additional parameters
 cutoffs = (15, 30) # travel time cutoffs
 hours = (262, 281) # WED 5:00pm-5:15pm through WED 9:45pm-10:00pm
+facnums = (1, 3, 5) # numbers of nearest facilities to average over
 
-all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours)
+all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours, facnums)
