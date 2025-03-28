@@ -2,7 +2,7 @@
 
 ![Python 3.8](https://img.shields.io/badge/python-3%2E8-blue) ![MIT License](https://img.shields.io/github/license/adam-rumpf/pharmacy-access)
 
-A collection of data processing scripts for use in an ongoing research project about measuring accessibility levels to pharmacies. These scripts are unlikely to be of use to anyone outside our research group, but are provided here for anyone interested. Python packages used can be found in the root-level `requirements` file.
+A collection of data processing scripts for use in an ongoing research project about measuring accessibility levels to pharmacies. These scripts are unlikely to be of use to anyone outside our research group, but are provided here for anyone interested. Python packages used can be found in the root-level `requirements` file. Scripts were written for use in Python 3.8.10.
 
 ## Contents
 

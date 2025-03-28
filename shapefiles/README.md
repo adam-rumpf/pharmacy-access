@@ -1,6 +1,6 @@
 # Shapefiles
 
-This subdirectory includes shapefiles for use in generating map graphics. These consist of TIGER/Line shapefiles downloaded from [Census.gov](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html).
+This subdirectory includes shapefiles for use in generating map graphics. These consist of TIGER/Line shapefiles downloaded from [Census.gov](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) using [pygris](https://pypi.org/project/pygris/).
 
 ## Files
 
