@@ -456,6 +456,33 @@ def fraction_above_threshold(pdic, fdic, ddic, cutoff, sdic, hours, count):
     
     return frac
 
+#------------------------------------------------------------------------------
+
+def avg_time_to_nearest(pdic, fdic, ddic, counts, sdic, hours):
+    """Computes average travel time to k nearest facilities.
+    
+    Positional arguments:
+        pdic (dict) -- Population dictionary indexed by population center ID.
+        fdic (dict) -- Facility dictionary indexed by facility ID.
+        ddic (dict(dict)) -- Distance dictionary of dictionaries, indexed first
+            by population center ID and second by facility ID.
+        counts (tuple(int)) -- Tuple of facility counts to include in the
+            averaging.
+        sdic (dict(dict)) -- Schedule dictionary of dictionaries, indexed first
+            by facility ID and second by time ID.
+        hours (tuple(int,int)) -- Tuple containing the first and last schedule
+            indices (inclusive).
+    
+    Returns:
+        TBD###
+    
+    Due to the computational overhead required to compute distances to k-nearest
+    facilities, this function is made to compute a collection of metrics all at
+    once from the same lists of sorted travel times.
+    """
+    
+    pass###
+
 #==============================================================================
 # Metric Compilation Scripts
 #==============================================================================
