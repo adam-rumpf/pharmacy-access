@@ -417,6 +417,45 @@ def cutoff_count(pdic, fdic, ddic, cutoff, sdic=None, hours=None, avg=False):
     
     return counts
 
+#------------------------------------------------------------------------------
+
+def fraction_above_threshold(pdic, fdic, ddic, cutoff, sdic, hours, count):
+    """Computes fraction of time period above a given facility count.
+    
+    Positional arguments:
+        pdic (dict) -- Population dictionary indexed by population center ID.
+        fdic (dict) -- Facility dictionary indexed by facility ID.
+        ddic (dict(dict)) -- Distance dictionary of dictionaries, indexed first
+            by population center ID and second by facility ID.
+        cutoff (float) -- Travel time cutoff.
+        sdic (dict(dict)) -- Schedule dictionary of dictionaries, indexed first
+            by facility ID and second by time ID.
+        hours (tuple(int,int)) -- Tuple containing the first and last schedule
+            indices (inclusive).
+        count (int) -- Facility count to use as the lower threshold.
+    
+    Returns:
+        (dict(float)) -- Dictionary of fractions, indexed by population center
+            ID. The number represents the fraction of the time period
+            indicated by "hours" during which the population center has
+            access to at least "count" facilities within travel time "cutoff".
+    """
+    
+    # Generate a list of count dictionaries for each time slot in the range
+    clist = [cutoff_count(pdic, fdic, ddic, cutoff, sdic, (h, h))
+             for h in range(hours[0], hours[1]+1)]
+    
+    # For each population center, count times slots above the facility threshold
+    frac = dict() # dictionary of fractions
+    for pid in pdic:
+        total = 0 # number of time slots meeting threshold
+        for c in clist:
+            if c[pid] >= count:
+                total += 1
+        frac[pid] = total/len(clist)
+    
+    return frac
+
 #==============================================================================
 # Metric Compilation Scripts
 #==============================================================================
@@ -481,9 +520,8 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
         countcol = len(results) - 1 # all-times count column for thresholds
         labels.append(f"fac-count_{tstart}-{tfinish}_cutoff-{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours))
-        labels.append(f"fac-avg_{tstart}-{tfinish}_cutoff-{t0}")
+        labels.append(f"fac-count-avg_{tstart}-{tfinish}_cutoff-{t0}")
         results.append(cutoff_count(pdic, fdic, ddic, t0, sdic, hours, True))
-        
         
         # Indicators for facility count thresholds
         for fn in facnums:
@@ -500,6 +538,10 @@ def all_metrics(pinfile, poutfile, facfile, distfile, schedfile, cutoffs, hours,
             # Print global statistic
             print(f"Total population lacking access to {fn} facilities " +
                   f"within {t0} minutes: {total}; Fraction: {total/totpop:f}")
+            # Fraction of time slot during which threshold is met
+            labels.append(f"frac-time-above-{fn}_{tstart}-{tfinish}_cutoff-{t0}")
+            results.append(fraction_above_threshold(pdic, fdic, ddic, t0, sdic,
+                                                    hours, fn))
     
     ###
     
@@ -530,3 +572,5 @@ facnums = (1, 3, 5) # numbers of nearest facilities to average over
 
 print("="*20 + "\nPharmacy tests\n" + "="*20)
 all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours, facnums)
+#print("\n" + "="*20 + "\nUrgent care tests\n" + "="*20)
+#all_metrics(polk_pop, polk_pop_uc_results, polk_uc, polk_dist_uc, polk_sched_uc, cutoffs, hours, facnums)

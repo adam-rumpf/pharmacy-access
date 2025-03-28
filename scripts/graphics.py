@@ -42,6 +42,9 @@ LAKELAND_Y = (27.949, 28.197)
 POLK_DEGREE = geopy.distance.geodesic((POLK_X_FULL[0], POLK_Y_FULL[1]),
                                       (POLK_X_FULL[0]+1, POLK_Y_FULL[1])).meters
 
+# Florida Polytechnic University coordinates
+FL_POLY = (-81.8513, 28.1508)
+
 #==============================================================================
 # Data Collection and Arrangement
 #==============================================================================
