@@ -2054,8 +2054,8 @@ def process_polk(popfile=os.path.join("..", "processed", "polk", "polk_pop.tsv")
 #address_file_coords(os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk.csv"), os.path.join("..", "data", "polk", "Pharmacy_Surrounding_Polk_Coords.csv"))
 #process_polk(deletemissingsvi=True, deletenocoords=True)
 
-#expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_pharmacy_15.tsv"), 15)
-#expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_uc_15.tsv"), 15)
+expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_pharmacy_15.tsv"), 15)
+expand_schedule(os.path.join("..", "processed", "polk", "polk_schedule_uc.tsv"), os.path.join("..", "processed", "polk", "polk_schedule_uc_15.tsv"), 15)
 
 table_file_append(os.path.join("..", "processed", "polk", "polk_pharmacy.tsv"), os.path.join("..", "processed", "polk", "polk_pharmacy_nbr.tsv"), os.path.join("..", "processed", "polk", "polk_pharmacy_all.tsv"))
 table_file_append(os.path.join("..", "processed", "polk", "polk_uc.tsv"), os.path.join("..", "processed", "polk", "polk_uc_nbr.tsv"), os.path.join("..", "processed", "polk", "polk_uc_all.tsv"))

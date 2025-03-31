@@ -599,5 +599,5 @@ facnums = (1, 3, 5) # numbers of nearest facilities to average over
 
 print("="*20 + "\nPharmacy tests\n" + "="*20)
 all_metrics(polk_pop, polk_pop_pharm_results, polk_pharm, polk_dist_pharm, polk_sched_pharm, cutoffs, hours, facnums)
-#print("\n" + "="*20 + "\nUrgent care tests\n" + "="*20)
-#all_metrics(polk_pop, polk_pop_uc_results, polk_uc, polk_dist_uc, polk_sched_uc, cutoffs, hours, facnums)
+print("\n" + "="*20 + "\nUrgent care tests\n" + "="*20)
+all_metrics(polk_pop, polk_pop_uc_results, polk_uc, polk_dist_uc, polk_sched_uc, cutoffs, hours, facnums)

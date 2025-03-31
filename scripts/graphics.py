@@ -218,6 +218,26 @@ def map_points(fname, axes, latname="lat", lonname="lon", color="black"):
 
 #------------------------------------------------------------------------------
 
+def map_points_list(points, axes, color="black"):
+    """Adds the points defined in a given list to a given set of axes.
+    
+    Positional arguments:
+        points (list) -- List of coordinate tuples for the points.
+        axes (ax) -- Matplotlib axis object to add this plot to.
+    
+    Keyword arguments:
+        color (str) -- Color of points. Defaults to "black".
+    """
+    
+    # Create point list
+    geom = [shp.Point(pt) for pt in points]
+    df = gpd.GeoDataFrame(geometry=geom)
+    
+    # Add the points to the axis
+    df.plot(ax=axes, color=color)
+
+#------------------------------------------------------------------------------
+
 def map_rectangle(xlim, ylim, axes, color="black"):
     """Adds a polygon defined by a list of points to a given set of axes.
     
@@ -245,7 +265,7 @@ def map_rectangle(xlim, ylim, axes, color="black"):
 #------------------------------------------------------------------------------
 
 def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
-             dataid="name", missing=None, legend=None):
+             dataid="name", missing=None, legend=None, limits=None):
     """Adds a heat map based on a given field to a given set of axes.
     
     Positional arguments:
@@ -270,11 +290,23 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
         legend (str) -- Legend bar name. Default None, in which case no legend
             bar is generated. Simply specifying an empty string (legend="")
             creates the legend bar with no string.
+        limits (float, float) -- Color map minimum and maximum values.
+            Default None, in which case the range of colors is dictated
+            entirely by the range of values in the data file. Including these
+            limits expands the effective range of values in the plotted field
+            to include the two specified values.
     """
     
     # Create a single unified GeoDataFrame
     frame = _make_geodata(shapefile, datafile, field, shapeid=shapeid,
                           dataid=dataid, missing=missing)
+    
+    # Add dummy fields in case an expanded range is required
+    if limits != None:
+        frame.loc[len(frame)] = [None if c is not field else limits[0]
+                                 for c in list(frame.columns)]
+        frame.loc[len(frame)] = [None if c is not field else limits[1]
+                                 for c in list(frame.columns)]
     
     # Determine whether to create a legend
     make_legend = True
@@ -291,6 +323,10 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
 
 # Download Polk County files
 #download_shapefiles("FL", "Polk", cfile=SHP_FL_COUNTIES, tfile=SHP_POLK_TRACTS, bfile=SHP_POLK_BLOCKS)
+
+# Completed result files
+RESULTS_PHARM = os.path.join(POLK_RESULTS, "polk_pop_pharm_results.tsv")
+RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County tracts
 #fig, ax = plt.subplots()
@@ -376,48 +412,48 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
 #ax.set_ylabel("Latitude")
 #plt.show()
 
-# Plot Polk County pharmacies within 15 minutes
-fig, ax = plt.subplots()
-map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_pharm_count_15-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Pharmacies within 15 minutes")
-map_county(SHP_FL_COUNTIES, ax, "105")
-plt.xlim(POLK_X_FULL)
-plt.ylim(POLK_Y_FULL)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Polk County pharmacies within 15 minutes
+#fig, ax = plt.subplots()
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="Pharmacies within 15 minutes")
+#map_county(SHP_FL_COUNTIES, ax, "105")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
 
-# Plot Polk County pharmacies within 30 minutes
-fig, ax = plt.subplots()
-map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_pharm_count_30-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Pharmacies within 30 minutes")
-map_county(SHP_FL_COUNTIES, ax, "105")
-plt.xlim(POLK_X_FULL)
-plt.ylim(POLK_Y_FULL)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Polk County pharmacies within 30 minutes
+#fig, ax = plt.subplots()
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-30", ax, color="Blues", legend="Pharmacies within 30 minutes")
+#map_county(SHP_FL_COUNTIES, ax, "105")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
 
-# Plot Polk County urgent care within 15 minutes
-fig, ax = plt.subplots()
-map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_uc_count_15-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Urgent care within 15 minutes")
-map_county(SHP_FL_COUNTIES, ax, "105")
-plt.xlim(POLK_X_FULL)
-plt.ylim(POLK_Y_FULL)
-ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-#plt.xticks([], [])
-#plt.yticks([], [])
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-plt.show()
+## Plot Polk County urgent care within 15 minutes
+#fig, ax = plt.subplots()
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="Urgent care within 15 minutes")
+#map_county(SHP_FL_COUNTIES, ax, "105")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
 
 # Plot Polk County urgent care within 30 minutes
 fig, ax = plt.subplots()
-map_heat(SHP_POLK_TRACTS, os.path.join(POLK_RESULTS, "polk_pop_uc_count_30-cutoff_all-times.tsv"), "access", ax, color="Blues", legend="Urgent care within 30 minutes")
+map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-30", ax, color="Blues", legend="Urgent care within 30 minutes", limits=(0, 50))
 map_county(SHP_FL_COUNTIES, ax, "105")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
