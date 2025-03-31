@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib_scalebar.scalebar as scb
 import pandas as pd
 import pygris as pg
+import scipy.stats as stat
 import shapely as shp
 
 #==============================================================================
@@ -140,6 +141,39 @@ def _make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
     # Add the column to the dataframe and return the result
     shapedf[field] = col
     return shapedf
+
+#------------------------------------------------------------------------------
+
+def _get_field(datafile, field, cast=2):
+    """Gets a specified field from a data file.
+    
+    Positional arguments:
+        datafile (str) -- File path for a data file.
+        field (str) -- Field in the data file.
+    
+    Positional keyword arguments:
+        cast (int) -- Option for how to cast the contents of the field. Options
+            include: 0 - string, 1 - integer, 2 - float. Default 2 (float).
+    
+    Returns:
+        (list) -- The contents of the specified field of the data file, as a
+            list.
+    """
+    
+    # Get field from data file
+    col = []
+    with open(datafile, 'r') as f:
+        reader = csv.DictReader(f, delimiter='\t', quotechar='"')
+        for row in reader:
+            if cast == 1:
+                val = int(row[field])
+            elif cast == 2:
+                val = float(row[field])
+            else:
+                val = row[field]
+            col.append(val)
+    
+    return col
 
 #==============================================================================
 # Map Generation
@@ -321,6 +355,54 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
                legend_kwds={"label": legend},
                missing_kwds={"color": "lightgray", "edgecolor": "gray",
                "hatch": "//////"})
+
+#==============================================================================
+# Statistics
+#==============================================================================
+
+def compare_two(file1, field1, file2, field2, names=None):
+    """Comparison statistics for two data fields.
+    
+    Positional arguments:
+        file1 (str) -- Path to first data file.
+        field1 (str) -- Field of column in first data file
+        file2 (str) -- Path to second data file.
+        field2 (str) -- Field of column in second data file.
+    
+    Optional keyword arguments:
+        names (tuple) -- Axis names. Default None. Otherwise, a tuple of (x, y)
+            axis labels.
+    
+    Runs a collection of statistical tests and generates a collection of
+    statistical graphics for comparing two data fields. This includes scatter
+    plots, correlation coefficients, and R^2 values.
+    """
+    
+    # Get both fields as lists
+    x = _get_field(file1, field1)
+    y = _get_field(file2, field2)
+    
+    print(f"Comparing:\n{field1} ({file1})\n{field2} ({file2})")
+    
+    # Linear regression statistics
+    m, b, corr, _, _ = stat.linregress(x, y)
+    print("Linear regression statistics:")
+    print(f"\tSlope:     {m}")
+    print(f"\tIntercept: {b}")
+    print(f"\tCorr:      {corr}")
+    
+    # Scatter plot
+    fig, ax = plt.subplots()
+    plt.scatter(x, y)
+    xleft, xright = ax.get_xlim()
+    ybottom, ytop = ax.get_ylim()
+    ax.set_aspect(abs((xright-xleft)/(ybottom-ytop)))
+    #plt.xticks([], [])
+    #plt.yticks([], [])
+    if names != None:
+        ax.set_xlabel(names[0])
+        ax.set_ylabel(names[1])
+    plt.show()
 
 #==============================================================================
 
@@ -726,3 +808,5 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 #ax.set_xlabel("Longitude")
 #ax.set_ylabel("Latitude")
 #plt.show()
+
+compare_two(RESULTS_PHARM, "svi", RESULTS_PHARM, "fac-count_Wed_17:00-Wed_22:00_cutoff-30", names=("SVI", "Pharmacies within 30 minutes during 5-10pm"))
