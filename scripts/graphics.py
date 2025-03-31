@@ -498,6 +498,32 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 #ax.set_ylabel("Latitude")
 #plt.show()
 
+## Plot Polk County population by tract
+#fig, ax = plt.subplots()
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "pop", ax, color="Greens", legend="Population")
+#map_county(SHP_FL_COUNTIES, ax, "105")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
+
+## Plot Polk County SVI
+#fig, ax = plt.subplots()
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "svi", ax, color="Reds", legend="SVI")
+#map_county(SHP_FL_COUNTIES, ax, "105")
+#plt.xlim(POLK_X_FULL)
+#plt.ylim(POLK_Y_FULL)
+#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+##plt.xticks([], [])
+##plt.yticks([], [])
+#ax.set_xlabel("Longitude")
+#ax.set_ylabel("Latitude")
+#plt.show()
+
 ## Plot Polk County pharmacies within 15 minutes
 #fig, ax = plt.subplots()
 #map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="Pharmacies within 15 minutes", limits=(0, 70))
