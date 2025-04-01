@@ -875,3 +875,9 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 ##compare_two(RESULTS_PHARM, "svi", RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", names=("SVI", "Frac of 5-10pm w/ access to 5 urgent cares within 30 min"))
 ##compare_two(RESULTS_PHARM, "svi", RESULTS_UC, "pov150", names=("SVI", "Fraction of population below 150% of poverty line"))
 ##compare_two(RESULTS_PHARM, "svi", RESULTS_UC, "noveh", names=("SVI", "Fraction of population with no vehicle access"))
+
+## Population/accessibility comparisons
+#compare_two(RESULTS_PHARM, "pop", RESULTS_PHARM, "fac-count_all-times_cutoff-15", names=("Population", "Pharmacies within 15 minutes"))
+#compare_two(RESULTS_PHARM, "pop", RESULTS_PHARM, "fac-count_all-times_cutoff-30", names=("Population", "Pharmacies within 30 minutes"))
+#compare_two(RESULTS_PHARM, "pop", RESULTS_UC, "fac-count_all-times_cutoff-15", names=("Population", "Urgent care within 15 minutes"))
+#compare_two(RESULTS_PHARM, "pop", RESULTS_UC, "fac-count_all-times_cutoff-30", names=("Population", "Urgent care within 30 minutes"))
