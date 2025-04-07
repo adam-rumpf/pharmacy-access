@@ -183,6 +183,43 @@ def _get_field(datafile, field, cast=2):
     
     return col
 
+#------------------------------------------------------------------------------
+
+def _get_field_dict(datafile, field, dataid="name", cast=2):
+    """Gets a specified field from a data file, as a dictionary.
+    
+    Positional arguments:
+        datafile (str) -- File path for a data file.
+        field (str) -- Field in the data file.
+    
+    Positional keyword arguments:
+        dataid (str) -- Field in the data file to use as the unique name to
+            distinguish each field. Should contain exactly the same sets of
+            names as appear in the shapefile's "shapeid" field. Defaults to
+            "name", which is what we've used for our population result files.
+        cast (int) -- Option for how to cast the contents of the field. Options
+            include: 0 - string, 1 - integer, 2 - float. Default 2 (float).
+    
+    Returns:
+        (dict) -- The contents of the specified field of the data file, as a
+            dictionary.
+    """
+    
+    # Get field from data file
+    col = dict()
+    with open(datafile, 'r') as f:
+        reader = csv.DictReader(f, delimiter='\t', quotechar='"')
+        for row in reader:
+            if cast == 1:
+                val = int(row[field])
+            elif cast == 2:
+                val = float(row[field])
+            else:
+                val = row[field]
+            col[row[dataid]] = val
+    
+    return col
+
 #==============================================================================
 # Map Generation
 #==============================================================================
@@ -362,6 +399,84 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
     
     # Add heat map to axes
     frame.plot(ax=axes, column=field, cmap=color, legend=make_legend,
+               legend_kwds={"label": legend},
+               missing_kwds={"color": "lightgray", "edgecolor": "gray",
+               "hatch": "//////"})
+
+#------------------------------------------------------------------------------
+
+def map_heat_diff(shapefile, file1, field1, file2, field2, axes, color="RdBu",
+                  shapeid="GEOID", dataid="name", missing=None, legend=None,
+                  limits=None, diffname="diff"):
+    """Adds a heat map based on a given field to a given set of axes.
+    
+    Positional arguments:
+        shapefile (str) -- Path to the main shapefile.
+        file1 (str) -- Path to the first data file 
+        field1 (str) -- Name of field in first data file.
+        file2 (str) -- Path to the second data file.
+        field2 (str) -- Name of field in second data file.
+        axes (ax) -- Matplotlib axis object to add this plot to.
+    
+    Keyword arguments:
+        color (str) -- Name of Matplotlib color scheme. Defaults to "viridis".
+            The full list of options can be found here:
+            https://matplotlib.org/stable/users/explain/colors/colormaps.html
+        shapeid (str) -- Field in the shapefile to use as the unique name to
+            distinguish each field. Defaults to "GEOID", which is the full FIPS
+            code for the TIGER/Line shapefiles.
+        dataid (str) -- Field in the data file to use as the unique name to
+            distinguish each field. Should contain exactly the same sets of
+            names as appear in the shapefile's "shapeid" field. Defaults to
+            "name", which is what we've used for our population result files.
+        missing -- Default entry used to fill missing fields. Default None.
+        legend (str) -- Legend bar name. Default None, in which case no legend
+            bar is generated. Simply specifying an empty string (legend="")
+            creates the legend bar with no string.
+        limits (float, float) -- Color map minimum and maximum values.
+            Default None, in which case the range of colors is dictated
+            entirely by the range of values in the data file. Including these
+            limits expands the effective range of values in the plotted field
+            to include the two specified values.
+        diffname (str) -- Name of difference field. Defaults to "diff". Just
+            needs to be some string not already used as an input file field
+            name.
+    
+    Generates a heat map corresponding to the difference between two field
+    values (first file's field minus second file's field).
+    """
+    
+    # Get two data series
+    data1 = _get_field_dict(file1, field1, dataid=dataid, cast=2)
+    data2 = _get_field_dict(file2, field2, dataid=dataid, cast=2)
+    
+    # Get shapefile dataframe and IDs
+    frame= gpd.read_file(shapefile)
+    shapeids = list(frame.get(shapeid))
+    
+    # Generate a new column for the dataframe by matching corresponding IDs
+    col = [missing for i in range(len(shapeids))]
+    for i in range(len(shapeids)):
+        if shapeids[i] in data1 and shapeids[i] in data2:
+            col[i] = data1[shapeids[i]] - data2[shapeids[2]]
+    
+    # Add column to frame
+    frame[diffname] = col
+    
+    # Add dummy fields in case an expanded range is required
+    if limits != None:
+        frame.loc[len(frame)] = [None if c is not diffname else limits[0]
+                                 for c in list(frame.columns)]
+        frame.loc[len(frame)] = [None if c is not diffname else limits[1]
+                                 for c in list(frame.columns)]
+    
+    # Determine whether to create a legend
+    make_legend = True
+    if legend == None:
+        make_legend = False
+    
+    # Add heat map to axes
+    frame.plot(ax=axes, column=diffname, cmap=color, legend=make_legend,
                legend_kwds={"label": legend},
                missing_kwds={"color": "lightgray", "edgecolor": "gray",
                "hatch": "//////"})
@@ -1021,6 +1136,84 @@ plt.show()
 # Plot Polk County average 5:00-10:00pm urgent care within 30 minutes, capped at 10
 fig, ax = plt.subplots()
 map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Average urgent care within 30 minutes during 5-10pm")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County difference in fraction of 5-10pm with access to at least 1 in 15 minutes
+fig, ax = plt.subplots()
+map_heat_diff(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-15", RESULTS_UC, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-15", ax, color="coolwarm", limits=(-1.0, 1.0), legend="")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County difference in fraction of 5-10pm with access to at least 1 in 30 minutes
+fig, ax = plt.subplots()
+map_heat_diff(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-30", RESULTS_UC, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-30", ax, color="coolwarm", limits=(-1.0, 1.0), legend="")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County difference in fraction of 5-10pm with access to at least 3 in 15 minutes
+fig, ax = plt.subplots()
+map_heat_diff(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-15", RESULTS_UC, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-15", ax, color="coolwarm", limits=(-1.0, 1.0), legend="")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County difference in fraction of 5-10pm with access to at least 3 in 30 minutes
+fig, ax = plt.subplots()
+map_heat_diff(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-30", RESULTS_UC, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-30", ax, color="coolwarm", limits=(-1.0, 1.0), legend="")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County difference in fraction of 5-10pm with access to at least 5 in 15 minutes
+fig, ax = plt.subplots()
+map_heat_diff(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-15", RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-15", ax, color="coolwarm", limits=(-1.0, 1.0), legend="")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County difference in fraction of 5-10pm with access to at least 5 in 30 minutes
+fig, ax = plt.subplots()
+map_heat_diff(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", ax, color="coolwarm", limits=(-1.0, 1.0), legend="")
 map_county(SHP_FL_COUNTIES, ax, "105")
 plt.xlim(POLK_X_FULL)
 plt.ylim(POLK_Y_FULL)
