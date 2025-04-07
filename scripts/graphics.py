@@ -86,7 +86,7 @@ def download_shapefiles(state, county, cfile=None, tfile=None, bfile=None):
 #------------------------------------------------------------------------------
 
 def _make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
-                 missing=None):
+                 missing=None, cap=None):
     """Adds additional data fields to a GeoDataFrame.
     
     Positional arguments:
@@ -104,7 +104,10 @@ def _make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
             distinguish each field. Should contain exactly the same sets of
             names as appear in the shapefile's "shapeid" field. Defaults to
             "name", which is what we've used for our population result files.
-        missing -- Default entry used to fill missing fields. Default None.
+        missing (float) -- Default entry used to fill missing fields. Default
+            None.
+        cap (float) -- Cap to place on field values. Defaults to None, in which
+            case the values are not altered.
     
     Returns:
         (GeoDataFrame) -- A GeoPandas GeoDataFrame object containing the fields
@@ -131,6 +134,11 @@ def _make_geodata(shapefile, datafile, field, shapeid="GEOID", dataid="name",
         reader = csv.DictReader(f, delimiter='\t', quotechar='"')
         for row in reader:
             data[row[dataid]] = float(row[field])
+    
+    # Cap fields if needed
+    if cap != None:
+        for id in data:
+            data[id] = min(data[id], cap)
     
     # Generate a new column for the dataframe by matching corresponding IDs
     col = [missing for i in range(len(shapeids))]
@@ -302,7 +310,7 @@ def map_rectangle(xlim, ylim, axes, color="black"):
 #------------------------------------------------------------------------------
 
 def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
-             dataid="name", missing=None, legend=None, limits=None):
+             dataid="name", missing=None, legend=None, limits=None, cap=None):
     """Adds a heat map based on a given field to a given set of axes.
     
     Positional arguments:
@@ -332,11 +340,13 @@ def map_heat(shapefile, datafile, field, axes, color="viridis", shapeid="GEOID",
             entirely by the range of values in the data file. Including these
             limits expands the effective range of values in the plotted field
             to include the two specified values.
+        cap (float) -- Cap to place on the input field values. Default None, in
+            which case the input field is not altered.
     """
     
     # Create a single unified GeoDataFrame
     frame = _make_geodata(shapefile, datafile, field, shapeid=shapeid,
-                          dataid=dataid, missing=missing)
+                          dataid=dataid, missing=missing, cap=cap)
     
     # Add dummy fields in case an expanded range is required
     if limits != None:
@@ -498,35 +508,35 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 #ax.set_ylabel("Latitude")
 #plt.show()
 
-## Plot Polk County population by tract
-#fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "pop", ax, color="Greens", legend="Population")
-#map_county(SHP_FL_COUNTIES, ax, "105")
-#plt.xlim(POLK_X_FULL)
-#plt.ylim(POLK_Y_FULL)
-#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-##plt.xticks([], [])
-##plt.yticks([], [])
-#ax.set_xlabel("Longitude")
-#ax.set_ylabel("Latitude")
-#plt.show()
+# Plot Polk County population by tract
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "pop", ax, color="Greens", limits=(0.0, 12500), legend="")#, legend="Population")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
 
-## Plot Polk County SVI
-#fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "svi", ax, color="Reds", legend="SVI")
-#map_county(SHP_FL_COUNTIES, ax, "105")
-#plt.xlim(POLK_X_FULL)
-#plt.ylim(POLK_Y_FULL)
-#ax.add_artist(scb.ScaleBar(POLK_DEGREE))
-##plt.xticks([], [])
-##plt.yticks([], [])
-#ax.set_xlabel("Longitude")
-#ax.set_ylabel("Latitude")
-#plt.show()
+# Plot Polk County SVI
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "svi", ax, color="Reds", limits=(0.0, 1.0), legend="")#, legend="SVI")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
 
 ## Plot Polk County pharmacies within 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="Pharmacies within 15 minutes", limits=(0, 70))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="")#, legend="Pharmacies within 15 minutes", limits=(0, 70))
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -539,7 +549,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County pharmacies within 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-30", ax, color="Blues", legend="Pharmacies within 30 minutes", limits=(0, 250))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-30", ax, color="Blues", legend="")#, legend="Pharmacies within 30 minutes", limits=(0, 250))
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -552,7 +562,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County urgent care within 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="Urgent care within 15 minutes", limits=(0, 70))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-15", ax, color="Blues", legend="")#, legend="Urgent care within 15 minutes", limits=(0, 70))
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -565,7 +575,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County urgent care within 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-30", ax, color="Blues", legend="Urgent care within 30 minutes", limits=(0, 250))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-30", ax, color="Blues", legend="")#, legend="Urgent care within 30 minutes", limits=(0, 250))
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -578,7 +588,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County average 5:00-10:00pm pharmacies within 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Average pharmacies within 15 minutes during 5-10pm")
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="")#, legend="Average pharmacies within 15 minutes during 5-10pm")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -591,7 +601,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County average 5:00-10:00pm pharmacies within 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Average pharmacies within 30 minutes during 5-10pm")
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="")#, legend="Average pharmacies within 30 minutes during 5-10pm")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -604,7 +614,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County average 5:00-10:00pm urgent care within 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Average urgent care within 15 minutes during 5-10pm")
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="")#, legend="Average urgent care within 15 minutes during 5-10pm")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -617,7 +627,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County average 5:00-10:00pm urgent care within 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Average urgent care within 30 minutes during 5-10pm")
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="")#, legend="Average urgent care within 30 minutes during 5-10pm")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -686,7 +696,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 1 pharmacy in 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Frac of 5-10pm w/ access to 1 pharmacy in 15 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 1 pharmacy in 15 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -699,7 +709,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 1 pharmacy in 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Frac of 5-10pm w/ access to 1 pharmacy in 30 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 1 pharmacy in 30 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -712,7 +722,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 1 urgent care in 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Frac of 5-10pm w/ access to 1 urgent care in 15 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 1 urgent care in 15 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -725,7 +735,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 1 urgent care in 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Frac of 5-10pm w/ access to 1 urgent care in 30 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-1_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 1 urgent care in 30 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -738,7 +748,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 3 pharmacies in 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Frac of 5-10pm w/ access to 3 pharmacies in 15 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 3 pharmacies in 15 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -751,7 +761,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 3 pharmacies in 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Frac of 5-10pm w/ access to 3 pharmacies in 30 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 3 pharmacies in 30 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -764,7 +774,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 3 urgent cares in 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Frac of 5-10pm w/ access to 3 urgent cares in 15 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 3 urgent cares in 15 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -777,7 +787,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 3 urgent cares in 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Frac of 5-10pm w/ access to 3 urgent cares in 30 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-3_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 3 urgent cares in 30 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -790,7 +800,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 5 pharmacies in 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Frac of 5-10pm w/ access to 5 pharmacies in 15 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 5 pharmacies in 15 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -803,7 +813,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 5 pharmacies in 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Frac of 5-10pm w/ access to 5 pharmacies in 30 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 5 pharmacies in 30 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -816,7 +826,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 5 urgent cares in 15 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", legend="Frac of 5-10pm w/ access to 5 urgent cares in 15 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 5 urgent cares in 15 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -829,7 +839,7 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 
 ## Plot Polk County fraction of 5-10pm with access to at least 5 urgent cares in 30 minutes
 #fig, ax = plt.subplots()
-#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", legend="Frac of 5-10pm w/ access to 5 urgent cares in 30 min", limits=(0.0, 1.0))
+#map_heat(SHP_POLK_TRACTS, RESULTS_UC, "frac-time-above-5_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Purples", limits=(0.0, 1.0), legend="")#legend="Frac of 5-10pm w/ access to 5 urgent cares in 30 min")
 #map_county(SHP_FL_COUNTIES, ax, "105")
 #plt.xlim(POLK_X_FULL)
 #plt.ylim(POLK_Y_FULL)
@@ -881,3 +891,107 @@ RESULTS_UC = os.path.join(POLK_RESULTS, "polk_pop_uc_results.tsv")
 #compare_two(RESULTS_PHARM, "pop", RESULTS_PHARM, "fac-count_all-times_cutoff-30", names=("Population", "Pharmacies within 30 minutes"))
 #compare_two(RESULTS_PHARM, "pop", RESULTS_UC, "fac-count_all-times_cutoff-15", names=("Population", "Urgent care within 15 minutes"))
 #compare_two(RESULTS_PHARM, "pop", RESULTS_UC, "fac-count_all-times_cutoff-30", names=("Population", "Urgent care within 30 minutes"))
+
+# Plot Polk County pharmacies within 15 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-15", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Pharmacies within 15 minutes", limits=(0, 70))
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County pharmacies within 30 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count_all-times_cutoff-30", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Pharmacies within 30 minutes", limits=(0, 250))
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County urgent care within 15 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-15", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Urgent care within 15 minutes", limits=(0, 70))
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County urgent care within 30 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count_all-times_cutoff-30", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Urgent care within 30 minutes", limits=(0, 250))
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County average 5:00-10:00pm pharmacies within 15 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Average pharmacies within 15 minutes during 5-10pm")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County average 5:00-10:00pm pharmacies within 30 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Average pharmacies within 30 minutes during 5-10pm")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County average 5:00-10:00pm urgent care within 15 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Average urgent care within 15 minutes during 5-10pm")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
+
+# Plot Polk County average 5:00-10:00pm urgent care within 30 minutes, capped at 10
+fig, ax = plt.subplots()
+map_heat(SHP_POLK_TRACTS, RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30", ax, color="Blues", cap=10.0, limits=(0.0, 10.0), legend="")#, legend="Average urgent care within 30 minutes during 5-10pm")
+map_county(SHP_FL_COUNTIES, ax, "105")
+plt.xlim(POLK_X_FULL)
+plt.ylim(POLK_Y_FULL)
+ax.add_artist(scb.ScaleBar(POLK_DEGREE))
+#plt.xticks([], [])
+#plt.yticks([], [])
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
+plt.show()
