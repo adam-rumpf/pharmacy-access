@@ -415,6 +415,31 @@ def compare_two(file1, field1, file2, field2, names=None):
         ax.set_ylabel(names[1])
     plt.show()
 
+#------------------------------------------------------------------------------
+
+def histogram(fname, field, bins=None):
+    """Generates a histogram of a data field from a file.
+    
+    Positional arguments:
+        fname (str) -- Path to data file.
+        field (str) -- Field of column.
+    
+    Optional keyword arguments:
+        bins (int) -- Number of bins. Default None, in which case the default
+            number is used.
+    """
+    
+    # Get field as a list
+    data = _get_field(fname, field)
+    
+    # Generate histogram
+    plt.figure()
+    if bins == None:
+        plt.hist(data)
+    else:
+        plt.hist(data, bins=bins)
+    plt.show()
+
 #==============================================================================
 
 # Download Polk County files
@@ -891,6 +916,16 @@ plt.show()
 #compare_two(RESULTS_PHARM, "pop", RESULTS_PHARM, "fac-count_all-times_cutoff-30", names=("Population", "Pharmacies within 30 minutes"))
 #compare_two(RESULTS_PHARM, "pop", RESULTS_UC, "fac-count_all-times_cutoff-15", names=("Population", "Urgent care within 15 minutes"))
 #compare_two(RESULTS_PHARM, "pop", RESULTS_UC, "fac-count_all-times_cutoff-30", names=("Population", "Urgent care within 30 minutes"))
+
+# Generate histograms of access metrics
+histogram(RESULTS_PHARM, "fac-count_all-times_cutoff-15")
+histogram(RESULTS_PHARM, "fac-count_all-times_cutoff-30")
+histogram(RESULTS_UC, "fac-count_all-times_cutoff-15")
+histogram(RESULTS_UC, "fac-count_all-times_cutoff-30")
+histogram(RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15")
+histogram(RESULTS_PHARM, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30")
+histogram(RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-15")
+histogram(RESULTS_UC, "fac-count-avg_Wed_17:00-Wed_22:00_cutoff-30")
 
 # Plot Polk County pharmacies within 15 minutes, capped at 10
 fig, ax = plt.subplots()
